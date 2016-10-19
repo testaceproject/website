@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="../../images/favicon.ico">
+
+    <title>Ace Project</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="../../bootstrap-3.3.6-dist/css/bootstrap.min.css" rel="stylesheet"  type="text/css">
+
+    <!-- Custom styles for this template -->
+  <!--  <link href="../../bootstrap-3.3.6-dist/css/offcanvas.css" rel="stylesheet" type="text/css">-->
+    
+    <!-- Custom styles for this template -->
+    <link href="navbar.css" rel="stylesheet">
+  
+    
+    <!-- Just for debugging purposes. Don't actually copy these 2 lines! -->
+    <!--[if lt IE 9]><script src="../assets/js/ie8-responsive-file-warning.js"></script><![endif]-->
+    <script src="../../assets/js/ie-emulation-modes-warning.js"></script>
+     
+    <!--dropdown file -->
+    <link rel="stylesheet" href="./bootstrap.css">
+    <script src="bootstrap-dropdown.js"></script>
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+ <style type="text/css"> 
+ ul{list-style-type:none;} 
+ ol{list-style-image:url(../../images/point040_10.gif);}
+ 
+  #midashi {
+	font-size:14px
+}
+ #item {
+	font-size: 16px;
+}
+.navbar-brand{
+	 background:url(../../images/logo.png)no-repeat left center;
+	 background-size:contain;
+	 height:70px;
+	 width:94px;
+	 }
+	 
+	.navbar-default {
+  background-color: #f7e2b7;
+  border-color: #fbb936;
+}
+.navbar-default .navbar-brand {
+  color: #363838;
+}
+.navbar-default .navbar-brand:hover,
+.navbar-default .navbar-brand:focus {
+  color: #848187;
+}
+.navbar-default .navbar-text {
+  color: #363838;
+}
+.navbar-default .navbar-nav > li > a {
+  color: #363838;
+}
+.navbar-default .navbar-nav > li > a:hover,
+.navbar-default .navbar-nav > li > a:focus {
+  color: #848187;
+}
+.navbar-default .navbar-nav > li > .dropdown-menu {
+  background-color: #f7e2b7;
+}
+.navbar-default .navbar-nav > li > .dropdown-menu > li > a {
+  color: #363838;
+}
+.navbar-default .navbar-nav > li > .dropdown-menu > li > a:hover,
+.navbar-default .navbar-nav > li > .dropdown-menu > li > a:focus {
+  color: #848187;
+  background-color: #fbb936;
+}
+.navbar-default .navbar-nav > li > .dropdown-menu > li > .divider {
+  background-color: #fbb936;
+}
+.navbar-default .navbar-nav .open .dropdown-menu > .active > a,
+.navbar-default .navbar-nav .open .dropdown-menu > .active > a:hover,
+.navbar-default .navbar-nav .open .dropdown-menu > .active > a:focus {
+  color: #848187;
+  background-color: #fbb936;
+}
+.navbar-default .navbar-nav > .active > a,
+.navbar-default .navbar-nav > .active > a:hover,
+.navbar-default .navbar-nav > .active > a:focus {
+  color: #848187;
+  background-color: #fbb936;
+}
+.navbar-default .navbar-nav > .open > a,
+.navbar-default .navbar-nav > .open > a:hover,
+.navbar-default .navbar-nav > .open > a:focus {
+  color: #848187;
+  background-color: #fbb936;
+}
+.navbar-default .navbar-toggle {
+  border-color: #fbb936;
+}
+.navbar-default .navbar-toggle:hover,
+.navbar-default .navbar-toggle:focus {
+  background-color: #fbb936;
+}
+.navbar-default .navbar-toggle .icon-bar {
+  background-color: #363838;
+}
+.navbar-default .navbar-collapse,
+.navbar-default .navbar-form {
+  border-color: #363838;
+}
+.navbar-default .navbar-link {
+  color: #363838;
+}
+.navbar-default .navbar-link:hover {
+  color: #848187;
+}
+
+@media (max-width: 767px) {
+  .navbar-default .navbar-nav .open .dropdown-menu > li > a {
+    color: #363838;
+  }
+  .navbar-default .navbar-nav .open .dropdown-menu > li > a:hover,
+  .navbar-default .navbar-nav .open .dropdown-menu > li > a:focus {
+    color: #848187;
+  }
+  .navbar-default .navbar-nav .open .dropdown-menu > .active > a,
+  .navbar-default .navbar-nav .open .dropdown-menu > .active > a:hover,
+  .navbar-default .navbar-nav .open .dropdown-menu > .active > a:focus {
+    color: #848187;
+    background-color: #fbb936;
+  }
+}	 
+	  
+	 
+ </style>
+
+ <script type="text/javascript">
+function MM_swapImgRestore() { //v3.0
+  var i,x,a=document.MM_sr; for(i=0;a&&i<a.length&&(x=a[i])&&x.oSrc;i++) x.src=x.oSrc;
+}
+function MM_preloadImages() { //v3.0
+  var d=document; if(d.images){ if(!d.MM_p) d.MM_p=new Array();
+    var i,j=d.MM_p.length,a=MM_preloadImages.arguments; for(i=0; i<a.length; i++)
+    if (a[i].indexOf("#")!=0){ d.MM_p[j]=new Image; d.MM_p[j++].src=a[i];}}
+}
+
+function MM_findObj(n, d) { //v4.01
+  var p,i,x;  if(!d) d=document; if((p=n.indexOf("?"))>0&&parent.frames.length) {
+    d=parent.frames[n.substring(p+1)].document; n=n.substring(0,p);}
+  if(!(x=d[n])&&d.all) x=d.all[n]; for (i=0;!x&&i<d.forms.length;i++) x=d.forms[i][n];
+  for(i=0;!x&&d.layers&&i<d.layers.length;i++) x=MM_findObj(n,d.layers[i].document);
+  if(!x && d.getElementById) x=d.getElementById(n); return x;
+}
+
+function MM_swapImage() { //v3.0
+  var i,j=0,x,a=MM_swapImage.arguments; document.MM_sr=new Array; for(i=0;i<(a.length-2);i+=3)
+   if ((x=MM_findObj(a[i]))!=null){document.MM_sr[j++]=x; if(!x.oSrc) x.oSrc=x.src; x.src=a[i+2];}
+}
+ </script>
+  </head>
+  
+  <body>
+ <!--<nav class="navbar navbar-fixed-top navbar-default">-->
+   <nav class="navbar navbar-default navbar-static-top">           
+     <div class="container">
+         <div class="navbar-header">
+           <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target=".navbar-collapse">
+              <span class="sr-only">Toggle navigation</span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+           </button>
+           <!--<img src="../../images/logo_bts.png" width="94" height="70" alt="logo">-->
+           <a class="navbar-brand" a href="../../images/logo.png"  name="pagetop" id="pagetop">  </a>         
+           <img src="../../images/ace-logo-title-ver.4.png" width="557" height="65"class="img-responsive" alt="title">　　
+       　</div>
+       <img src="../../images/yajirushi_blue01.jpg" width="11" height="12"><a href="../../jp/02_members/index.html"> Japanese</a>　　
+       
+       <div class="navbar-collapse collapse">
+      　　<ul class="nav navbar-nav">
+               <!--<ul class="nav nav-pills" role="tablist">-->
+               <li ><a href="../../../index_boots.html">Home</a></li>
+               <li class="dropdown"> <a id="drop1" href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"> Project<span class="caret"></span> </a>
+                 <ul id="menu1" class="dropdown-menu" aria-labelledby="drop1">
+                   <li><a href="../01_overview/index.html">Overview</a></li>
+                   <li class="active"><a href="index.html">Members</a></li>
+                   <li><a href="../03_publications/index.html">Publications</a></li>
+                   <li><a href="../04_links/index.html">Links</a></li>
+                 </ul>
+               </li>
+               <li><a href="../07_document/index.html">Documents</a></li>
+               <li><a href="../05_downloads/index.html">Downloads</a></li>
+               <li class="dropdown"> <a id="drop2" href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"> Contact<span class="caret"></span> </a>
+                 <ul id="menu2" class="dropdown-menu" aria-labelledby="drop2">
+                   <li><a href="../09_questions/index.html">Questions</a></li>
+                   <li><a href="http://ace-project.kyushu-u.ac.jp/mantis/login_page.php">Report/Proposal</a></li>
+                 </ul>
+               </li>
+               <li><a href="../08_contrib/index.html">Contrib</a></li>
+         <!--    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<img src="../../images/flags_jp.png" width="34" height="25" alt="language">-->
+             </ul>
+           </div> <!--/.nav-collapse -->
+         </div>
+       </nav>
+     
+   
+   <div class="container">
+     <div class="row row-offcanvas row-offcanvas-right">
+       <div class="col-xs-12 col-sm-9">
+         <!--<div class="col-xs-12 col-sm-6 col-md-8 ">-->
+            <div class="row">
+         <!--  <div class="col-xs-6 col-md-4">-->
+         <!--  <div class="col-xs-12 col-sm-9 col-md-8 ">-->
+             <div class="col-xs-12 col-sm-9">       
+              <h4><a id="Project Leader"></a>Project Leader</h4>
+               <div class="progress">
+                <div class="progress-bar progress-bar-info" role="progressbar" aria-valuenow="20" aria-valuemin="0" aria-valuemax"100" style="width:20%">
+               　<span class="sr-only">20% Complete</span>
+                </div>
+                </div>
+                <ul>
+                <li><h5>
+                 <p><strong>Takeshi Nanri</strong> <a href="http://hyoka.ofc.kyushu-u.ac.jp/search/details/K000018/english.html" onMouseOut="MM_swapImgRestore()" onMouseOver="MM_swapImage('Image7','','../../images/hp_2.jpg',1)"><img src="../../images/hp_1.jpg" name="Image7" width="25" height="15" border="0" align="texttop"></a><a href="http://hyoka.ofc.kyushu-u.ac.jp/search/details/K000018/english.html">Home Page</a>
+                 </h5></li>
+                 <li> <p>Assosiate Professor of Research Institute for Information Technology, Kyushu University</p></li>
+            
+           　　　  <p>　<span class="glyphicon glyphicon-envelope" aria-hidden="true"></span> 　nanri(@)cc.kyushu-u.ac.jp</p>
+                   <p>　<span class="glyphicon glyphicon-phone-alt" aria-hidden="true"></span>　+81-92-642-2298</p>
+                   <p>　<span class="glyphicon glyphicon-print" aria-hidden="true"></span>　+81-92-642-3844&nbsp;&nbsp; </p>
+              </ul>                
+              <p>
+              <br/>
+              <h4><a id="Group Leader"></a>Group Leader</h4>
+               <div class="progress">
+                <div class="progress-bar progress-bar-info" role="progressbar" aria-valuenow="20" aria-valuemin="0" aria-valuemax"100" style="width:20%">
+               　<span class="sr-only">20% Complete</span>
+                </div>
+                </div>
+              <ul>
+               <li> <h5><p><strong>Shinji Sumitomo</strong></p></h5></li>
+               <li>   <p>Senior Architect of Fujitsu Limited</p></li>
+               <li><h5><p><strong>Hidetomo Shibamura</strong><span class="link"><a href="http://www.isit.or.jp/lab1/member/shibamura-hidetomo/" target="_blank" onmouseout="MM_swapImgRestore()" onmouseover="MM_swapImage('Image36','','../../images/hp_2.jpg',1)"><img src="../../images/hp_1.jpg" alt="" name="Image36" width="25" height="15" border="0" align="texttop" id="Image36" />Home Page</a></span></p></h5>
+               <p>Resercher of Institute of Systems, Information Technologies and Nanotechnologies (ISIT) </p></li>
+               <li><h5><p><strong>Toshiya Takami</strong></p></h5></li>
+               <li>   <p>Associate Professor of Research Institute for Information Technology, Kyushu University </p></li>
+              </ul>
+              <p>
+              <td width="181"> 　
+              <div align="right"><strong class="text1"><a href="#pagetop">Page Top</a></strong> <img src="../../images/yajirushi_blue03.jpg" alt="" width="11" height="12" /></div></td>
+                
+              <h4><a id="Members"></a>Members</h4>
+               <div class="progress">
+                <div class="progress-bar progress-bar-info" role="progressbar" aria-valuenow="20" aria-valuemin="0" aria-valuemax"100" style="width:20%">
+               　<span class="sr-only">20% Complete</span>
+                </div>
+                </div>
+              <h5> <p><img src="../../images/c16_gy6.gif" width="10" height="10" alt="buttom"> Interface Group</p></h5>
+               <ul>
+                 <li><h5><p><strong>Takeshi Nanri</strong></p></h5></li>
+              
+                 <li><p>Assosiate Professor of Research Institute for Information Technology, Kyushu University</p></li>   
+                 <li><h5><p><strong>Yoshiyuki Morie</strong></p></h5></li>
+                 <li><p>Research Assistant Professor of Research Institute for Information Technology, Kyushu University</p></li>
+                 <li><h5><p><strong>Taizo Kobayashi</strong></p></h5></li>
+                 <li><p>Associate Professor of Teikyo University</p></li>
+               </ul> 
+              <p>
+              <h5> <p><img src="../../images/c16_gy6.gif" width="10" height="10" alt="buttom"> Protocol Group</p></h5>
+               <ul>
+                 <li><h5><p><strong>Shinji Sumimoto</strong>　　　</p></h5></li>
+                 <li><p>Fujitsu Limited   </p></li>
+                 <li><h5><p><strong>Yuichiro Ajima</strong>　　</p></h5></li>
+                 <li><p>Fujitsu Limited   </p></li>
+                 <li><h5><p><strong>Kazushige Saga</strong></p></h5></li>
+                 <li><p>Fujitsu Limited  </p> </li>
+                 <li><h5><p><strong>Takafumi Nose　</strong>　　 </p></h5></li>
+                 <li><p>Fujitsu Limited  </p> </li>               
+                 <li><h5><p><strong>Naoyuki Shida</strong>　　</p></h5></li>
+                 <li><p>Fujitsu Limited  </p></li>
+               </ul>
+              <p>
+              <h5> <p><img src="../../images/c16_gy6.gif" width="10" height="10" alt="buttom"> Channel Control Group</p></h5>
+               <ul>
+                  <li><h5><p><strong>Hidetomo Shibamura</strong><span class="link"><a href="http://www.isit.or.jp/lab1/member/shibamura-hidetomo/" target="_blank" onmouseout="MM_swapImgRestore()" onmouseover="MM_swapImage('Image36','','../../images/hp_2.jpg',1)"><img src="../../images/hp_1.jpg" alt="" name="Image36" width="25" height="15" border="0" align="texttop" id="Image36" />Home Page</a></span></p></h5></li>
+                  <li><p>Resercher of Institute of Systems, Information Technologies and Nanotechnologies (ISIT)</p></li>
+                  <li><h5><p><strong>Takeshi Soga</strong></p></h5></li>
+                  <li><p>Resercher of Institute of Systems, Information Technologies and Nanotechnologies (ISIT)</p></li>
+               </ul>
+              <p>
+              <h5> <p><img src="../../images/c16_gy6.gif" width="10" height="10" alt="buttom"> Application Group</p> </h5>
+               <ul>
+                  <li><h5><p><strong>Toshiya Takami</strong></p></h5></li>
+                  <li><p>Associate Professor of Research Institute for Information Technology, Kyushu University </p></li>
+                  <li><h5><p><strong>Hiroaki Honda</strong><span class="link"><a href="http://yebisu.cc.kyushu-u.ac.jp/~honda/index_e.html" target="_blank" onmouseout="MM_swapImgRestore()" onmouseover="MM_swapImage('Image36','','../../images/hp_2.jpg',1)"><img src="../../images/hp_1.jpg" alt="" name="Image36" width="25" height="15" border="0" align="texttop" id="Image36" />Home Page</a></span></p></h5></li>
+                  <li><p>Research Associate Professor of Research Institute for Information Technology, Kyushu University</p></li>
+                  <li><h5><p><strong>Ryutaro Susukita</strong></p></h5></li>
+                  <li><p>Research Associate Professor of Research Institute for Information Technology, Kyushu University</p></li>
+                  <li><h5><p><strong>Keiichiro Fukazawa</strong><span class="link"><a href="http://ais.sys.i.kyoto-u.ac.jp/~fukazawa/index-e.html" target="_blank" onmouseout="MM_swapImgRestore()" onmouseover="MM_swapImage('Image36','','../../images/hp_2.jpg',1)"><img src="../../images/hp_1.jpg" alt="" name="Image36" width="25" height="15" border="0" align="texttop" id="Image36" />Home Page</a></span></p></h5></li>
+                  <li><p>Associate Professor of Academic Center for Computing and Media Studies, Kyoto University</p></li>
+               </ul>   
+               <p>
+               <ul>
+                 <li><h5><p><strong>Yuichi Inadomi　（Old Member)</strong></p></h5></li>
+                 
+                 <li><p>Research Associate Professor of Faculty of Information Science and Electrical Engineering, Kyushu University</p></li>
+                </ul>
+              <p>&nbsp;</p>
+              <td width="181"> 　
+              <div align="right"><strong class="text1"><a href="#pagetop">Page Top</a></strong> <img src="../../images/yajirushi_blue03.jpg" alt="" width="11" height="12" /></div></td>
+                
+             <!--<p><a class="btn btn-default" href="#" role="button">View details &raquo;</a></p>-->
+          <!--  </div>--><!--/.col-xs-6.col-lg-4-->
+          </div>
+          </div>
+          </div>
+          
+      <div class="col-xs-6 col-sm-3 sidebar-offcanvas" id="sidebar">
+       <!--  <div class="list-group">-->
+       <!--<div class="col-md-3" role="complementary">-->
+          <nav class="bs-docs-sidebar hidden-print hidden-xs hidden-sm">
+            <ul class="nav bs-docs-sidenav">
+            <li>
+             <a href="#"class="btn btn-warning active">Members</a>
+             <a href="#Project Leader"class="btn btn-default">Project Leader</a>
+             <a href="#Group Leader"class="btn btn-default">Group Leader</a>
+             <a href="#Members"class="btn btn-default">Members</a>
+            </li>
+          </ul>
+         </nav>
+        </div><!--/.sidebar-offcanvas--> 
+      </div><!--/row-->
+      
+      <hr>
+
+      <footer>
+        <h6>Copyright &copy; 2012 - <script type="text/javascript">var d = new Date();document.write(d.getFullYear());</script> ACE PROJECT. All Right Reserved</h6>
+   <script type="text/javascript"><!--
+document.write( "Last update : " , document.lastModified );
+// --></script>
+      </footer>
+
+    </div><!--/.container-->
+
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="../dist/js/bootstrap.min.js"></script>
+    <script src="bootstrap-3.3.6-dist/js/bootstrap.js"></script>
+    
+    <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+    <script src="../assets/js/ie10-viewport-bug-workaround.js"></script>
+
+    <script src="offcanvas.js"></script>
+  </body>
+</html>
