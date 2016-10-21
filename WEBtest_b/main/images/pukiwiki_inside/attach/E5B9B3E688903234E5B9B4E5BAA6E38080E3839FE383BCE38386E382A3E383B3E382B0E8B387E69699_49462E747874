@@ -1,0 +1,190 @@
+!------------------------------------------------------------------------------&
+通信用バッファ定義
+!------------------------------------------------------------------------------&
+int ACE_MI_buff temp_x1()
+int ACE_MI_buff temp_x2()
+int ACE_MI_buff temp_y1()
+int ACE_MI_buff temp_y2()
+int ACE_MI_buff temp_z1()
+int ACE_MI_buff temp_z2()
+#通信バッファそのもの
+
+!------------------------------------------------------------------------------&
+計算を含んだ同期隣接通信（3次元領域分割に特化）
+!------------------------------------------------------------------------------&
+real :: f(nx2,ny2,nz2,m)  --> f(is-1:ie+1,js-1:je+1,ks-1:ke+1,1:m)
+
+int ACE_MI_boudary(f, s_rank, r_rank, ...)
+{
+  #1次元目袖領域のパック
+　temp_x1()=f(is,:,:,:)
+
+　#袖領域の通信
+  call ACE_MI_sendrecv(temp_x1, temp_x2, 要素数, s_rank, r_rank)
+
+　#袖領域のアンパック
+　f(ie+1,:,:,)=temp_x2()
+　
+  #2次元目袖領域のパック
+　temp_y1()=f(:,js,:,:)
+
+　#袖領域の通信
+  call ACE_MI_sendrecv(temp_y1, temp_y2, 要素数, s_rank, r_rank)
+
+　#袖領域のアンパック
+　f(:,je+1,:,:)=temp_y2()
+　
+  #3次元目袖領域のパック
+　temp_z1()=f(:,:,ks,:)
+
+　#袖領域の通信
+  call ACE_MI_sendrecv(temp_z1, temp_z2, 要素数, s_rank, r_rank)
+
+　#袖領域のアンパック
+　f(:,:,ke+1,:)=temp_z2()
+　
+}
+
+
+!------------------------------------------------------------------------------&
+計算を含んだ非同期隣接通信（3次元領域分割に特化）
+!------------------------------------------------------------------------------&
+
+int ACE_MI_iboudanry(f, s_rank, r_rank, ...)
+{
+  #1次元目袖領域のパック（全部の袖領域）
+　temp_x1(:,:,:)=f(is,:,:,:)
+
+　#袖領域の通信
+  call ACE_MI_isendrecv(temp_x1, temp_x2, 要素数, s_rank, r_rank, 制御番号)
+
+  #2次元目袖領域のパック1（1次元目の影響を受けない部分）
+　temp_y1(:,:,:)=f(is-1:ie,js,:,:)
+
+  #通信終了確認
+  call ACE_wait(制御番号)
+
+　#袖領域のアンパック
+　f(ie+1,:,:,)=temp_x2(:,:,:)
+　
+  #2次元目袖領域のパック2（1次元目の影響を受ける部分）
+　temp_y1(ie+1,:,:)=f(ie+1,js,:)
+
+　#袖領域の通信
+  call ACE_MI_isendrecv(temp_y1, temp_y2, 要素数, s_rank, r_rank, 制御番号)
+
+  #3次元目袖領域のパック1（2次元目の影響を受けない部分）
+　temp_z1(:,:,:)=f(:,js-1,je,ks,:)
+
+  #通信終了確認
+  call ACE_wait()
+
+　#袖領域のアンパック
+　f(:,je+1,:,:)=temp_y2()
+　
+  #3次元目袖領域のパック2（2次元目の影響を受ける部分）
+　temp_z1(:,je+1,:)=f(:,je+1,ks,:)
+
+　#袖領域の通信
+  call ACE_MI_sendrecv(temp_z1, temp_z2, 要素数, s_rank, r_rank, 制御番号)
+
+  #通信終了確認
+  call ACE_wait()
+
+　#袖領域のアンパック
+　f(:,:,ke+1,:)=temp_z2()
+　
+}
+
+!------------------------------------------------------------------------------&
+ランク配置設定
+!------------------------------------------------------------------------------&
+  subroutine xyz_para
+!
+    include 'mpif.h'
+    integer :: i, imod, ii, j, jmod, jj, k, kmod, kk, irank1
+!
+    call mpi_init(ier)
+    call mpi_comm_rank(mpi_comm_world, irank, ier)
+    call mpi_comm_size(mpi_comm_world, isize, ier)
+!
+    isizex = npex
+    isizey = npey
+    isizez = npez
+!
+    kk = nz2 / isizez
+    kmod = mod(nz2, isizez)
+    jj = ny2 / isizey
+    jmod = mod(ny2, isizey)
+    ii = nx2 / isizex
+    imod = mod(nx2, isizex)
+!
+    do k = -1, isizez
+      do j = -1, isizey
+        do i = -1, isizex
+          itable(i,j,k) = MPI_PROC_NULL
+        end do
+      end do
+    end do
+!
+    irank1 = 0
+    do k = 0, isizez-1
+      do j = 0, isizey-1
+        do i = 0, isizex-1
+          itable(i,j,k) = irank1
+          if(irank == irank1) then
+            irankx = i
+            iranky = j
+            irankz = k
+          end if
+          irank1 = irank1 + 1
+        end do
+      end do
+    end do
+!
+    ks = 1
+    kss = irankz * kk + min(kmod,irankz)
+    if (irankz < kmod) kk = kk + 1
+    ke = ks + kk - 1
+    kgs = ks + kss
+    kge = ke + kss
+    ks1 = ks
+    ke1 = ke
+    if (irankz == 0) ks1 = 2
+    if (irankz == isizez-1) ke1 = ke - 1
+    kn = ke - ks + 1
+!
+    js = 1
+    jss = iranky * jj + min(jmod,iranky)
+    if (iranky < jmod) jj = jj + 1
+    je = js + jj - 1
+    jgs = js + jss
+    jge = je + jss
+    js1 = js
+    je1 = je
+    if (iranky == 0) js1 = 2
+    if (iranky == isizey-1) je1 = je - 1
+    jn = je - js + 1
+!
+    is = 1
+    iss = irankx * ii + min(imod,irankx)
+    if (irankx < imod) ii = ii + 1
+    ie = is + ii - 1
+    igs = is + iss
+    ige = ie + iss
+    is1 = is
+    ie1 = ie
+    if (irankx == 0) is1 = 2
+    if (irankx == isizex-1) ie1 = ie - 1
+    in = ie - is + 1
+!
+    irightx = itable(irankx+1,iranky,  irankz  )
+    ileftx  = itable(irankx-1,iranky,  irankz  )
+    irighty = itable(irankx,  iranky+1,irankz  )
+    ilefty  = itable(irankx,  iranky-1,irankz  )
+    irightz = itable(irankx,  iranky,  irankz+1)
+    ileftz  = itable(irankx,  iranky,  irankz-1)
+!
+  end subroutine xyz_para
+
+

@@ -1,0 +1,138 @@
+@charset "utf-8";
+/* CSS Document */
+
+body {
+	color: #000;
+	background-attachment: fixed;
+	background-image: none;
+	background-repeat: no-repeat;
+	background-position: center top;
+	padding-top: 10px;
+	line-height: 1.4em;
+	margin-right: 0;
+	margin-bottom: 1px;
+	margin-left: 0;
+	margin-top: 3px;
+}
+.subtitle {
+	font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;
+	font-size: medium;
+	font-weight: bold;
+	color: #000;
+}
+ul, ol, dl { 
+	padding: 0;
+	margin: 0;
+}
+h1, h2, h3, h4, h5, h6, p {
+	margin-top: 0;
+	padding-right: 15px;
+	padding-left: 15px;
+	height: auto;
+}
+.content p {
+	color: #000;
+}
+a img {
+	border: none;
+	text-align: center;
+	text-decoration: none;
+}
+
+a:link {
+	color: #000066;
+	text-decoration: none;
+}
+a:visited {
+	color: #330033;
+	text-decoration: none;
+}
+a:hover, a:active, a:focus {
+	text-decoration: none;
+	color: #06C;
+}
+
+	/* ~~ この固定幅コンテナが他の div を囲みます。~~ */
+.container {
+   -webkit-box-shadow: 1px 1px 8px #535102;
+	-moz-box-shadow: 1px 1px 7px #999966;
+	box-shadow: 1px 1px 9px #999966;
+    
+	width: 96%;/*768/960 */
+	max-width: 930px;
+	min-width: 900px;
+
+	margin: 0 auto;
+	font-size: 14px;
+	color: #000;
+}
+
+
+/* ~~ これはレイアウト情報です。~~*/
+
+/* ~~ フッター ~~ */
+.footer {
+	padding: 10px 0;
+	background-color: #FFECD9;
+	font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;
+	font-size: x-small;
+	color: #333;
+}
+
+.fltrt {  
+	float: right;
+	margin-left: 8px;
+}
+.fltlft {
+	float: left;
+	margin-right: 8px;
+}
+.clearfloat { 
+	clear:both;
+	height:0;
+	font-size: 1px;
+	line-height: 0px;
+}
+.container .footer {
+
+}
+.container .footer p {
+	text-align: center;
+
+}
+body,td,th {
+	color: #000;
+	font-family: Century;
+}
+
+.text {
+	font-size: 14px;
+	color: #000;
+	font-family: Century;
+}
+.text1 {
+	width:auto
+	font-size: 14px;
+	color: #000;
+	font-family: Century;
+	font-size: 14px;
+}
+#text2 {
+	width:auto
+	font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;
+	font-size: small;
+	font-weight: bold;
+	color: #006;
+	font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;
+}
+ #comment {
+}
+ .midashi {
+	font-size: small;
+}
+ a:hover {
+	text-decoration: underline;
+}
+a:active {
+	text-decoration: none;
+}

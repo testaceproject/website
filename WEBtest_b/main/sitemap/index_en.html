@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <link rel="icon" href="../../images/favicon.ico">
+
+    <title>Ace Project</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="../../bootstrap-3.3.5-dist/css/bootstrap.min.css" rel="stylesheet"  type="text/css">
+
+    <!-- Custom styles for this template -->
+    <link href="../../bootstrap-3.3.5-dist/css/offcanvas.css" rel="stylesheet" type="text/css">
+    
+    <!-- Custom styles for this template -->
+    <link href="navbar.css" rel="stylesheet">
+  
+    
+    <!-- Just for debugging purposes. Don't actually copy these 2 lines! -->
+    <!--[if lt IE 9]><script src="../assets/js/ie8-responsive-file-warning.js"></script><![endif]-->
+    <script src="../../assets/js/ie-emulation-modes-warning.js"></script>
+     
+    <!--dropdown file -->
+    <link rel="stylesheet" href="./bootstrap.css">
+    <script src="bootstrap-dropdown.js"></script>
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+ <style type="text/css"> 
+ ul{list-style-type:none;} 
+ ol{list-style-image:url(../../images/point040_10.gif);}
+ 
+  #midashi {
+	font-size: 16px;
+}
+ #item {
+	font-size: 16px;
+}
+.navbar-brand{
+	 background:url(logo.png)no-repeat left center;
+	 background-size:contain;
+	 height:70px;
+	 width:94px;
+	 }
+ </style>
+  
+  </head>
+
+<body>
+  <!--<nav class="navbar navbar-fixed-top navbar-default">-->
+   <nav class="navbar navbar-default navbar-static-top">           
+     <div class="container">
+         <div class="navbar-header">
+           <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target=".navbar-collapse">
+              <span class="sr-only">Toggle navigation</span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+           </button>
+           <img src="../../images/logo_bts.png" width="94" height="70" alt="logo">
+           <img src="../../images/ace-logo-title-ver.4.png" width="557" height="65" alt="logo">　　
+       　</div>
+         <div class="navbar-collapse collapse">
+         <ul class="nav navbar-nav">
+         <!--<ul class="nav nav-pills" role="tablist">-->
+              <li ><a href="../../../index.html">Home</a></li>
+              <li class="dropdown">
+               <a id="drop1" href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
+                   Project<span class="caret"></span>
+                 </a>                 
+                <ul id="menu1" class="dropdown-menu" aria-labelledby="drop1">
+                   <li><a href="index.html">Overview</a></li>
+                   <li><a href="../02_members/index.html">Members</a></li>
+                   <li><a href="../03_publications/index.html">Publications</a></li>
+                   <li><a href="../04_links/index.html">Links</a></li>
+                </ul>
+               </li>   
+              <li><a href="../07_document/index.html">Documents</a></li>
+              <li><a href="../05_downloads/index.html">Downloads</a></li>
+              <li class="dropdown">            
+               <a id="drop2" href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
+                  Contact<span class="caret"></span>
+                 </a>
+                   <ul id="menu2" class="dropdown-menu" aria-labelledby="drop2">
+                     <li><a href="../09_questions/index.html">Questions</a></li>
+                     <li><a href="http://ace-project.kyushu-u.ac.jp/mantis/login_page.php">Report/Proposal</a></li>
+                   </ul>
+              </li>
+              <li><a href="../jp/08_contrib/index.html">Contrib</a></li>
+             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<img src="../../images/flags_jp.png" width="34" height="25" alt="language">
+           </ul>
+        </div><!--/.nav-collapse -->
+       </div>          
+      </nav>
+    <div class="container">
+
+      <div class="row row-offcanvas row-offcanvas-right">
+
+         <div class="col-xs-9">
+         
+          <div class="row">
+           <div class="col-xs-9">
+              <h2><a id="Background"></a>Background</h2>
+              <div class="progress">
+                <div class="progress-bar progress-bar-info" role="progressbar" aria-valuenow="20" aria-valuemin="0" aria-valuemax"100" style="width:20%">
+               　<span class="sr-only">20% Complete</span>
+                </div>
+                </div>
+              <p>Currently, there have been various discussions about possible designs of Exa-scale computers.
+                  Most of those designs predict that the number of nodes and the number of cores will be significantly increased, 
+                  and the interconnect topology will be more complicated.
+                  On such systems, communication libraries should be re-designed to fullfil the requirements of scalability.
+              Especially, memory usage and performance tuning will become the key issues.</p>
+              <p>As for memory usage, in the existing communication ilbraries, each process prepares 
+                 some amount of receive buffer for each of other processors.
+                 This works efficiently up to hundreds of thousands of processes.
+                 However, when the number of processes becomes over 100 million, the total amount of memory for the buffer will be more than 100GB/process, even when the amount of each receive buffer is 1KB.
+                 At the same time, 
+                 the available amount of memory per process is predicted to be the same level or reduced on Exa-scale computers. 
+                 Therefore, communication libraries on such systems must be based on memory saved protocols.</p>
+              <p>On the other hand, as for performance tuning, static and manual methods are applied on the existing communication libraries.
+                 For example, the thresholds for changing algorithms of collective communications are decided by using some benchmark programs at the installation of the library. 
+                 As the number of processes increases, and the interconnect topology becomes complicated, the search space of the optimization will be increased explosively.
+                 In addition to that, because of the complexed toplogy, it becomes quite difficult to predict performance statically.
+                 Therefore, some automatic and dynamic method will be needed for tuning communication libraries.</p>
+              <p>Another important point for performance tuning is the information of the programs.
+                 Existing communication libraries can only achieve information about parameters that have been specified at the invokation of communication functions.
+                 Therefore, libraries cannot analyze how those functions are used in the programs.
+                 For example, if the library can detect that the invoked function will be repeatedly invoked for many times,
+                 it can pay some overhead to apply more aggresive optimization at runtime.
+               Or, there can be special approaches for implementing some popular patterns of computation and communication.</p>
+              <p><br />
+              </p>
+              
+             <!--<p><a class="btn btn-default" href="#" role="button">View details &raquo;</a></p>-->
+           </div>
+           </div>
+           
+           <div class="col-xs-9">
+          <div class="row">
+            <h2><a id="Targets"></a>Targets</h2>
+             <div class="progress">
+                <div class="progress-bar progress-bar-info" role="progressbar" aria-valuenow="20" aria-valuemin="0" aria-valuemax"100" style="width:20%">
+               　<span class="sr-only">20% Complete</span>
+                </div>
+                </div>
+              <p><em><strong><img src="../../images/c16_gy6.gif" alt="button" width="10" height="10" align="texttop"> <span id="item">Advanced Communication Primitives (ACP)  Library</span></strong></em>
+           <ul>
+             <li> A communication library designed to achieve sustained scalability towards exa-scale computing environments.To minimize the requirements of memory consumption at the initialization, ACP provides RDMA model as the basic communication layer. </li>
+             <p>On interconnect networks where RDMA is supported as a fundamental facility, this layer can be implemented with minimal memory consumption and overhead.Since programming with RDMA needs detailed operations such as memory registrations, address exchanges and synchronizations, ACP also prepares some sets of programmer-friendly interfaces as the middle layer. 
+             <p> To enable the library to consume just-enough amount of memory, each interface of the middle layer requires explicit allocation of the memory region before using it. This region can be explicitly de-allocated so that the memory region can be reused for other purposes.Each of the interfaces of this middle layer is primitive and independent.       
+             <p>For example, the channel interface in this layer only supports one-directional and in-order data transfer between a pair of processes. This helps to minimize the memory consumption and overhead in the implementation. Also, the independent interfaces enable precise control of the allocation and de-allocation of memory regions for them. At this point, interfaces of channels, vectors, lists and memory allocation are defined in ACP. There are plans for other interfaces such as group communications, deques, maps, sets and counters.
+          </ul>
+           </div><!--/row-->
+           </div>
+           
+          <div class="col-xs-9">        
+          <div class="row">
+            <h2><a id="Research Documents"></a>Research Documents</h2>
+             <div class="progress">
+                <div class="progress-bar progress-bar-info" role="progressbar" aria-valuenow="20" aria-valuemin="0" aria-valuemax"100" style="width:20%">
+               　<span class="sr-only">20% Complete</span>
+                </div>
+                </div>
+              <p><img src="../../images/c17_gy8.gif" width="16" height="16" alt="button"> <span id="item"><strong><a href="http://www.isc-events.com/isc15_ap/sessiondetails.htm?t=session&amp;o=206&amp;a=select" target="_blank"><em>ISC High Performance 2015 </em></a></strong>Birds-of-a-Feather(BoF) session；</span><br /> 
+    　<a href="ISC2015_BoF.pdf" target="_blank"><u>How to Achieve Memory-Efficient Communication towards Exascale HPC</u></a><img src="../../images/pdficon_small.png" width="16" height="16" /></p>
+        </div><!--/row-->
+        </div>
+        
+        <div class="col-xs-9">       
+         <div class="row">
+            <h2><a id="Schedule and History"></a>Schedule and History</h2>
+             <div class="progress">
+                <div class="progress-bar progress-bar-info" role="progressbar" aria-valuenow="20" aria-valuemin="0" aria-valuemax"100" style="width:20%">
+               　<span class="sr-only">20% Complete</span>
+                </div>
+                </div>
+             <ol>
+                <li>2015-2016 :  Evaluation and feedback.</li>
+             </ol>
+               <ul>
+                 <li>　　　　　　　　　<u>ACP-1.1.1.</u> has been released on July 13. 2015.</li> 
+               <li>　　　　　　　　　ACP-1.1 has been released on May 11. 2015.</li> 
+                 <li>　　　　　　　　　<u>Mantis BTS</u> is available on February 9. 2015.</li>
+               </ul> 
+                         
+             <ol>
+                <li>2013-2015 :  Design, implement and publish ACE library.</li>
+             </ol>  
+               <ul>
+                 <li> 　　　　　　　　　<u>Hands-on Tutorial of ACP at SC14.</u></li> 
+                 <li>　　　　　　　　　ACP-1.0 has been released on September 1. 2014.</li>                 
+                 <li> 　　　　　　　　　Specification of ACP-1.0 is available on September 1. 2014.</li>
+               </ul>    
+    　　　　<ol>
+                 <li>2012-2014 :  Research and develop individual technologies.</li>
+                 <li>2011 : Start of the project.</li>
+            </ol>   
+           <p>&nbsp;</p> 
+         </div><!--/row-->
+         </div>
+          </div>
+              
+                 
+   <!--   <div class="col-xs-6 col-sm-3 sidebar-offcanvas" id="sidebar">
+         <div class="list-group">--->
+        <div class="col-md-3" role="complementary">
+          <nav class="bs-docs-sidebar hidden-print hidden-xs hidden-sm">
+            <ul class="nav bs-docs-sidenav">
+            <li>
+             <a href="#"class="btn btn-default active">Overview</a>
+             <a href="#Background"class="btn btn-default">Background</a>
+             <a href="#Targets"class="btn btn-default">Targets</a>
+             <a href="#Research Documents"class="btn btn-default">Research Documents</a>
+             <a href="#Schedule and History"class="btn btn-default">Schedule and History</a>
+          </li>
+          </ul>
+         </nav>
+        </div><!--/.sidebar-offcanvas--> 
+      </div><!--/row-->
+     
+      <hr>
+
+      <footer>
+        <h6>Copyright &copy; 2012 - <script type="text/javascript">var d = new Date();document.write(d.getFullYear());</script> ACE PROJECT. All Right Reserved</h6>
+   <h6><script type="text/javascript"><!--
+   document.write( "Last update : " , document.lastModified );
+// --></script></h6>
+      </footer>
+   
+     </div>
+    <!--/.container-->
+
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="../dist/js/bootstrap.min.js"></script>
+    <script src="bootstrap-3.3.5-dist/js/bootstrap.js"></script>
+    
+    <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+    <script src="../assets/js/ie10-viewport-bug-workaround.js"></script>
+
+    <script src="offcanvas.js"></script>
+  </body>
+</html>

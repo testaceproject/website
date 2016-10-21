@@ -1,0 +1,328 @@
+!------------------------------------------------------------------------------
+!  one-dimensional 2 fluids equation by modified leap-frog method
+!------------------------------------------------------------------------------
+module constants
+  implicit none
+!------------------------------------------------------------------------------
+! nr: length of simulation box
+! nb: 1-Er   2-Eth   3-Eph    4-Bth  5-Bph  6-Ne
+!     7-Ver  8-Veth  9-Veph  10-Te  11-Ni  
+!    12-Vir 13-Vith 14-Viph  15-Ti
+! last: total times of calculation
+!------------------------------------------------------------------------------
+  integer, parameter :: nr = 200, nb = 15
+  integer, parameter :: nr1 = nr+1, nr2 = nr+2, n1 = nr2
+  integer, parameter :: last =  641
+  integer, parameter :: iip0 = 160, iis0 =  641, iiq0 = 8
+!
+  real, parameter :: thr = 0.01, tam = 0.5
+  real, parameter :: r0 = 201.0, xd = 201.0, aa0 = 1.0, daa0 = 0.5
+  real, parameter :: cnn = 8.0, amm = 8.0
+!
+  real, parameter :: cc = 100.0, ram = 100.0, ramr = 1.0 / ram
+  real, parameter :: gam = 5.0/3.0, gam1 = gam - 1.0, g0 = 1.00
+  real, parameter :: br0 = 1.0, n00 = 1.0
+  real, parameter :: te00 = 1.0, ti00 = ramr
+  real, parameter :: pi = 3.1415926
+!
+end module constants
+!------------------------------------------------------------------------------
+!
+!------------------------------------------------------------------------------
+module initial
+  use constants
+  implicit none
+!
+  integer :: i, j, k, m
+  real :: r, x1, akx, ak0x, aa, ac, as
+!
+  private
+  public :: init_sin
+!
+  contains
+!
+!
+  subroutine init_sin(f, hhr1)
+    real, intent(inout) :: f(nb, n1)
+    real, intent(in)    :: hhr1(n1)
+!
+    do i = 1, nr2
+      r = hhr1(i)
+      x1 = 2.0 * pi * (r / xd)
+      akx = cnn * x1
+      ak0x = amm * x1
+      aa = aa0 * ((1.0 - 0.5 * daa0) + 0.5 * daa0 * cos(ak0x))
+      ac = cos(akx)
+      as = sin(akx)
+      f(1,i) = 0.0
+      f(2,i) = 0.0
+      f(3,i) = 0.0
+      f(4,i) = aa * ac
+      f(5,i) = aa * as
+      f(6,i) = n00
+      f(7,i) = 0.0
+      f(8,i) = 0.0
+      f(9,i) = 0.0
+      f(10,i) = te00
+      f(11,i) = n00
+      f(12,i) = 0.0
+      f(13,i) = aa * ac
+      f(14,i) = aa * as
+      f(15,i) = ti00
+    end do
+!
+    return
+  end subroutine init_sin
+!
+end module initial
+!------------------------------------------------------------------------------
+!
+!------------------------------------------------------------------------------
+program two_fluids_1D
+!
+  use constants
+  use initial
+  implicit none
+!
+!----array of simulation data----!
+  real :: f(nb, n1), u(nb, n1), p(nb, n1)
+  real :: hhr1(n1)
+!
+  real :: hr, hr1, t, t1
+  real :: dr1, dr2, dr3, dr4, ct1, ct2, rr0, rr1, rr2, br
+!
+!----for writing data----!
+  integer :: ntap  = 10
+!
+!----for control the scheme----!
+  integer :: iiq, iip, iis, ii
+!
+  integer :: i, m
+!
+  open(ntap,file='two_fluid01.data',access='sequential', form='unformatted')
+!
+  hr = r0 / float(nr1)
+  hr1 = 1.0 / hr
+  t = 0.5 * hr * thr
+  t1 = tam * t
+!
+  dr1 = t1 * hr1
+  dr2 = t * hr1
+  dr3 = cc * t1 * hr1
+  dr4 = cc * t * hr1
+  ct1 = t1 * cc
+  ct2 = t * cc
+!
+  f(1:nb, 1:n1) = 0.0
+  p(1:nb, 1:n1) = 0.0
+  u(1:nb, 1:n1) = 0.0
+!
+  rr0 = 1.0
+  do i = 1, n1
+    hhr1(i) = rr0 + hr * float(i - 1)
+  end do
+!
+!--- initial condition ---!
+  call init_sin(f, hhr1)
+!
+  iiq = iiq0 - 1
+  iip = iip0 - 1
+  iis = 0
+!
+!--- main loop ---!
+  do ii = 1, last
+    iiq = iiq + 1
+    iip = iip + 1
+    iis = iis + 1
+!--- periodic boundary at nr=1 and nr=nr2 ---!
+    do m = 1, nb
+      f(m, 1)   = f(m, nr1)
+      f(m, nr2) = f(m, 2)
+    end do
+!
+    if(iiq == iiq0) then
+      do i = 1, nr1
+        do m = 1, nb
+          u(m,i) = 0.5 * (f(m, i) + f(m, i + 1))
+        end do
+      end do
+      t1 = 0.5 * t
+      dr1 = t1 * hr1
+      dr3 = cc * t1 * hr1
+      ct1=t1*cc
+    end if
+!
+!--- first step ---!
+    do i = 1, nr1
+      do m = 1, nb
+        p(m, i) = 0.5 * (f(m, i) + f(m, i + 1))
+      end do
+    end do
+!
+    do i = 1, nr1
+      rr1 = 0.0
+      rr2 = rr1 * rr1
+      br = br0
+!
+      u(1, i) = u(1, i)   &
+      &      - t1 * (p(12, i) * p(11, i) - p(7, i) * p(6, i))
+      u(2, i) = u(2, i)   &
+      &       - t1 * (p(13, i) * p(11, i) - p(8, i) * p(6, i))   &
+      &       - dr3 * (f(5, i + 1) - f(5, i)) - ct1 * p(5, i) * rr1
+      u(3, i) = u(3, i)   &
+      &       - t1 * (p(14, i) * p(11, i) + p(9, i) * p(6, i))   &
+      &       + dr3 * (f(4, i + 1) - f(4, i)) + ct1 * p(4, i) * rr1
+      u(4 , i) = u(4, i)   &
+      &        + dr3 * (f(3, i + 1) - f(3, i)) + ct1 * p(3, i) * rr1
+      u(5, i) = u(5, i)   &
+      &       - dr3 * (f(2, i + 1) - f(2, i)) - ct1 * p(2, i) * rr1
+!
+      u(6, i) = u(6, i)   &
+      &       - dr1 * (f(7, i + 1) * f(6, i + 1) - f(7, i) * f(6, i))   &
+      &       - 2.0 * t1 * p(7, i) * p(6, i) * rr1
+      u(7, i) = u(7, i)   &
+      &       - 0.5 * dr1 * (f(7, i + 1) * f(7, i + 1) - f(7, i) * f(7, i))   &
+      &       + t1 * (p(8, i) * p(8, i) + p(9, i) * p(9, i)) * rr1   &
+      &       - dr1 * (f(10, i + 1) * f(6, i + 1) - f(10, i) * f(6, i))    &
+      &       / p(6, i)   &
+      &       - t1 * (p(1, i) + p(8, i) * p(5, i) - p(9, i) * p(4, i))   &
+      &       - t1 * g0 * rr2
+      u(8, i) = u(8, i)   &
+      &       - dr1 * p(7, i) * (f(8, i + 1) - f(8, i))   &
+      &       - t1 * p(7, i) * p(8, i) * rr1   &
+      &       - t1 * (p(2, i) + p(9, i) * br - p(7, i) * p(5, i)) * rr1
+      u(9, i) = u(9, i)   &
+      &       - dr1 * p(7, i) * (f(9, i + 1) - f(9, i))   &
+      &       - t1 * p(7, i) * p(9, i) * rr1   &
+      &       - t1 * (p(3, i) + p(7, i) * p(4, i) - p(8, i) * br) * rr1
+      u(10, i) = u(10, i)   &
+      &        - dr1 * p(7, i) * (f(10, i + 1) - f(10, i))   &
+      &        - dr1 * gam1 * p(10, i) * (f(7, i + 1) - f(7, i))   &
+      &        - 2.0 * t1 * gam1 * p(10, i) * p(7,i) * rr1
+!
+      u(11, i) = u(11, i)   &
+      &        - dr1 * (f(12, i + 1) * f(11, i + 1) - f(12, i) * f(11, i))   &
+      &        - 2.0 * t1 * p(12, i) * p(11, i) * rr1
+      u(12, i) = u(12, i)   &
+      &        - 0.5 * dr1 * (f(12, i + 1) * f(12, i + 1) - f(12, i)   &
+      &        * f(12, i))   &
+      &        + t1 * (p(13, i) * p(8, i) + p(14, i) * p(14, i)) * rr1   &
+      &        - dr1 * (f(15, i + 1) * f(11, i + 1) - f(15, i) * f(11, i))   &
+      &        / p(11, i)   &
+      &        + t1 * ramr * (p(1, i) + p(13, i) * p(5, i) - p(14, i)   &
+      &        * p(4, i))   &
+      &        - t1 * g0 * rr2
+      u(13, i) = u(13, i)   &
+      &        - dr1 * p(12, i) * (f(13, i + 1) - f(13, i))   &
+      &        - t1 * p(12, i) * p(13, i) * rr1   &
+      &        + t1 * ramr * (p(2, i) + p(14, i) * br - p(12, i) * p(5,i))   &
+      &        * rr1
+      u(14, i) =u (14, i)   &
+      &        - dr1 * p(12, i) * (f(14, i + 1) - f(14, i))   &
+      &        - t1 * p(12, i) * p(14, i) * rr1   &
+      &        + t1 * ramr * (p(3, i) + p(12, i) * p(4, i) - p(13, i) * br)   &
+      &        * rr1
+      u(15, i) = u(15, i)   &
+      &        - dr1 * p(2, i) * (f(15, i + 1) - f(15, i))   &
+      &        - dr1 * gam1 * p(15, i) * (f(12, i + 1) - f(12, i))   &
+      &        - 2.0 * t1 * gam1 * p(15, i) * p(12, i) * rr1
+!
+    end do
+!
+!--- second step ---!
+    do i = 2, nr1
+      do m = 1, nb
+        p(m, i) = 0.5 * (u(m, i) + u(m, i - 1))
+      end do
+    end do
+!
+    do i = 2, nr1
+      rr1 = 0.0
+      rr2 = rr1 * rr1
+      br = br0
+!
+      f(1, i) = f(1, i)   &
+      &       - t * (p(12, i) * p(11, i) - p(7, i) * p(6, i))
+      f(2, i) = f(2, i)   &
+      &       - t * (p(13, i) * p(11, i) - p(8, i) * p(6, i))   &
+      &       - dr4 * (u(5, i) - u(5, i - 1)) - ct2 * p(5, i) * rr1
+      f(3, i) = f(3 ,i)   &
+      &       - t * (p(14, i) * p(11, i) + p(9, i) * p(6, i))   &
+      &       + dr4 * (u(4, i) - u(4, i - 1)) + ct2 * p(4, i) * rr1
+      f(4, i) = f(4, i)   &
+      &       + dr4 * (u(3, i) - u(3, i - 1)) + ct2 * p(3, i) * rr1
+      f(5, i) = f(5, i)   &
+      &       - dr4 * (u(2, i) - u(2, i - 1)) - ct2 * p(2, i) * rr1
+!
+      f(6, i) = f(6, i)   &
+      &       - dr2 * (u(7, i) * u(6, i) - u(7, i - 1) * u(6, i - 1))   &
+      &       - 2.0 * t* p(7, i) * p(6, i) * rr1
+      f(7, i) = f(7, i)   &
+      &       - 0.5 * dr2 * (u(7, i) * u(7, i) - u(7, i - 1) * u(7, i - 1))   &
+      &       + t * (p(8, i) * p(8, i) + p(9, i) * p(9, i)) * rr1   &
+      &       - dr2 * (u(10, i) * u(6, i) - u(10, i - 1) * u(6, i - 1))   &
+      &       / p(6, i)   &
+      &       - t * (p(1, i) + p(8, i) * p(5, i) - p(9, i) * p(4, i))   &
+      &       - t * g0 * rr2
+      f(8, i) = f(8, i)   &
+      &       - dr2 * p(7, i) * (u(8, i) - u(8, i - 1))   &
+      &       - t * p(7, i) * p(8, i) * rr1   &
+      &       - t * (p(2, i) + p(9, i) * br - p(7, i) * p(5, i)) * rr1
+      f(9, i) = f(9, i)   &
+      &       - dr2 * p(7, i) * (u(9, i) - u(9, i - 1))   &
+      &       - t * p(7, i) * p(9, i) * rr1   &
+      &       - t * (p(3, i) + p(7, i) * p(4, i) - p(8, i) * br) * rr1
+      f(10, i) = f(10, i)   &
+      &        - dr2 * p(7, i) * (u(10, i) - u(10, i - 1))   &
+      &        - dr2 * gam1 * p(10, i) * (u(7, i) - u(7, i - 1))   &
+      &        - 2.0 * t * gam1 * p(10, i) * p(7, i) * rr1
+! 
+      f(11, i) = f(11, i)   &
+      &        - dr2 * (u(12, i) * u(11, i) - u(12, i - 1) * u(11, i - 1))   &
+      &        - 2.0 * t * p(12, i) * p(11, i) * rr1
+      f(12, i) = f(12, i)   &
+      &        - 0.5 * dr2 * (u(12, i) * u(12, i) - u(12, i - 1)   &
+      &        * u(12, i - 1))   &
+      &        + t * (p(13, i) * p(8, i) + p(14, i) * p(14, i)) * rr1   &
+      &        - dr2 * (u(15, i) * u(11, i) - u(15, i - 1) * u(11, i - 1))   &
+      &        / p(11, i)   &
+      &        + t * ramr * (p(1, i) + p(13, i) * p(5, i) - p(14, i)   &
+      &        * p(4, i)) - t * g0 * rr2
+      f(13, i) = f(13, i)   &
+      &        - dr2 * p(12, i) * (u(13, i) - u(13, i - 1))   &
+      &        - t * p(12, i) * p(13, i) * rr1   &
+      &        + t * ramr * (p(2, i) + p(14, i) * br - p(12, i) * p(5, i))   &
+      &        * rr1
+      f(14, i) = f(14, i)   &
+      &        - dr2 * p(12, i) * (u(14, i) - u(14, i - 1))   &
+      &        - t * p(12, i) * p(14, i) * rr1   &
+      &        + t * ramr * (p(3, i) + p(12, i) * p(4, i) - p(13, i) * br)   &
+      &        * rr1
+      f(15, i) = f(15, i)   &
+      &        - dr2 * p(2, i) * (u(15, i) - u(15, i - 1))   &
+      &        - dr2 * gam1 * p(15, i) * (u(12, i) - u(12, i - 1))   &
+      &        - 2.0 * t * gam1 * p(15, i) * p(12, i) * rr1
+!
+    end do
+!
+    if(iiq ==iiq0) then
+      t1 = 1.0 * t
+      dr1 = t1 * hr1
+      dr3 = cc * t1 * hr1
+      ct1 = t1 * cc
+      iiq = 0
+    end if
+!
+    if(iip == iip0) then
+      iip = 0
+      do m = 1, nb
+        write(10) f(m, 1:nr1)
+      end do
+    end if
+!
+    if(iis == iis0) iis = 0
+!
+  end do
+  stop
+end program two_fluids_1D
+!------------------------------------------------------------------------------

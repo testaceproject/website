@@ -1,0 +1,514 @@
+#include "cp_acp_particle_set_method.h"
+#include <assert.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define size_3d(size) (size[0] * size[1] * size[2])
+#define size_3d_half_margin(size) ((size[0] + 1) * (size[1] + 2) * (size[2] + 2))
+#define swap_double3(x, y) {double tmp[3]; memcpy(tmp, x, sizeof x); memmove(x, y, sizeof y); memcpy(y, tmp, sizeof tmp);}
+#define NUM_CELL_PARTICLES_LIST(set, x, y, z) set->num_cell_particles_list[((1 + (x)) * (set->num_cells_list[1] + 2) + 1 + (y)) * (set->num_cells_list[2] + 2) + 1 + (z)]
+#define CELL_PARTICLE_OFFSETS(set, x, y, z) set->cell_particle_offsets[((1 + (x)) * (set->num_cells_list[1] + 2) + 1 + (y)) * (set->num_cells_list[2] + 2) + 1 + (z)]
+#define LOADS(set, x, y, z) loads[((1 + (x)) * (set->num_cells_list[1] + 2) + 1 + (y)) * (set->num_cells_list[2] + 2) + 1 + (z)]
+
+volatile static struct starter{
+	acp_ga_t rbufga;
+	acp_ga_t qbufga;
+	acp_ga_t typesbufga;
+	acp_ga_t vbufga;
+	acp_ga_t tmp;
+	char padding[100];
+	acp_ga_t recvnga;
+} *starter;
+
+extern struct io_header_1
+{
+  int npart[6];
+  double mass[6];
+  double time;
+  double redshift;
+  int flag_sfr;
+  int flag_feedback;
+  int npartTotal[6];
+  int flag_cooling;
+  int num_files;
+  double BoxSize;
+  double Omega0;
+  double OmegaLambda;
+  double HubbleParam;
+  char fill[256 - 6 * 4 - 6 * 8 - 2 * 8 - 2 * 4 - 6 * 4 - 2 * 4 - 4 * 8];
+  /* fills to 256 Bytes */
+} header1;
+
+extern int *Id;
+
+extern int NumPart, Ngas;
+
+extern struct particle_data
+{
+  float Pos[3];
+  float Vel[3];
+  float Mass;
+  int Type;
+
+  float Rho, U, Temp, Ne;
+} *P;
+
+static long count_send_particles(CP_ACP_PARTICLE_SET *set, const double periods[3], double (*r)[3], long n, long *counts);
+static void cell_particles(CP_ACP_PARTICLE_SET *set, const double periods[3], double (*r)[3], const double *q, const int *types, double (*v)[3], long n);
+static void cell_acp_particles(CP_ACP_PARTICLE_SET *set, const double periods[3], double (*r)[3], double *q, int *types, long n, double (*v)[3], double *m);
+static int count_receive_particles(const acp_ga_t *startergas, const long *sendcounts, int destsize, int *recvbufoffsets);
+static void communicate_particles(CP_ACP_PARTICLE_SET *set, const double periods[3], double (*r)[3], const double *q, const int *types, long sendn, double (*v)[3], double *m, const long *sendcounts, const int *dests, const acp_ga_t *startergas, const int *recvbufoffsets, int destsize, int recvn);
+static void pack_particles(CP_ACP_PARTICLE_SET *set, const double periods[3], double (*r)[3], const double *q, const int *types, double (*v)[3], long n, int *dests, long *counts, int destsize, double (*rbuf)[3], double *qbuf, int *typesbuf, double (*vbuf)[3]);
+static void communicate(int destsize, const int *recvbufoffsets, double (*sendrbuf)[3], const double *sendqbuf, const int *sendtypesbuf, double (*sendvbuf)[3], long sendn, const long *sendcounts, acp_ga_t *startergas);
+static void count_receive_cell_particles(CP_ACP_PARTICLE_SET *set, const double periods[3], double (*rbuf)[3], long n);
+static void initialize_cell_particle_offsets(CP_ACP_PARTICLE_SET *set);
+static void count_loads(CP_ACP_PARTICLE_SET *set, long *loads);
+
+#include <stdio.h>
+
+int compare_p(struct particle_data *p1, struct particle_data *p2){
+	return p1->Type - p2->Type;
+}
+
+void cp_calculate_acp_particle_periodic_cutoff_forces(CP_ACP_PARTICLE_SET *set, const CP_ACP_METHOD *method){
+	long nw;
+	long *loads;
+	if(set->decomposition == NULL){
+		int procs = acp_procs();
+		int npx, npy;
+		int nc[3];
+		npx = npy = pow(procs, 1. / 3);
+		set->decomposition = cp_allocate_acp_decomposition2((int)(method->period / method->rmax), npx, npy);
+		cp_get_acp_decomposition2_num_cells_list(set->decomposition, nc);
+		set->num_cell_particles_list = calloc(size_3d_half_margin(nc), sizeof *set->num_cell_particles_list);
+		set->cell_particle_offsets = malloc(size_3d_half_margin(nc) * sizeof *set->cell_particle_offsets);
+		memcpy(set->num_cells_list, nc, sizeof nc);
+	}
+	cell_acp_particles(set, method->periods, set->positions, set->charges, set->types, set->num_particles, set->velocities, set->masses);
+	set->forces_or_potentials = malloc(set->num_particles * sizeof *set->forces_or_potentials);
+	loads = calloc(size_3d_half_margin(set->num_cells_list), sizeof *loads);
+	count_loads(set, loads);
+	cp_redecompose_acp(set->decomposition, loads);
+	int nc[3];
+	cp_get_acp_decomposition2_num_cells_list(set->decomposition, nc);
+	fprintf(stderr, "rank %d nc %d %d %d\n", acp_rank(), nc[0], nc[1], nc[2]);
+	memcpy(set->num_cells_list, nc, sizeof nc);
+	free(set->num_cell_particles_list);
+	set->num_cell_particles_list = calloc(size_3d_half_margin(nc), sizeof *set->num_cell_particles_list);
+	set->cell_particle_offsets = realloc(set->cell_particle_offsets, size_3d_half_margin(nc) * sizeof *set->num_cell_particles_list);
+	cell_acp_particles(set, method->periods, set->positions, set->charges, set->types, set->num_particles, set->velocities, set->masses);
+
+	void bcast(void *buf, int n, int root);
+	if(acp_rank() == 0){
+		load_snapshot("/home/susukita/snapshot_001", 1);
+		int i;
+		for(i = 1; i <= NumPart; i ++){
+			P[i].Type = Id[i];
+		}
+		qsort(1 + P, NumPart, sizeof *P, compare_p);
+	}
+	fprintf(stderr, "bcast NumPart\n");
+	bcast(&NumPart, sizeof NumPart, 0);
+	fprintf(stderr, "bcast NumPart end\n");
+	if(acp_rank() != 0){
+		P = malloc(NumPart * sizeof *P);
+		P --;
+		Id = malloc(NumPart * sizeof *Id);
+		Id --;
+	}
+	fprintf(stderr, "bcast P\n");
+	bcast(1 + P, NumPart * sizeof *P, 0);
+	fprintf(stderr, "bcast P end\n");
+	fprintf(stderr, "bcast Id\n");
+	bcast(1 + Id, NumPart * sizeof *Id, 0);
+	fprintf(stderr, "bcast Id end\n");
+	int j, k;
+	for(j = 0; j < set->num_particles; j ++){
+		if(j % 1000 == 0)fprintf(stderr, "j=%d\n", j);
+		struct particle_data key, *found;
+		key.Type = set->types[j];
+		found = bsearch(&key, 1 + P, NumPart, sizeof *P, compare_p);
+		if(found == NULL){
+			fprintf(stderr, "particle %d not found\n", set->types[j]);
+			exit(EXIT_FAILURE);
+		}
+		for(k = 0; k < 3; k ++){
+			set->positions[j][k] = found->Pos[k];
+			set->velocities[j][k] = found->Vel[k];
+		}
+	}
+
+	free(loads);
+	loads = calloc(size_3d_half_margin(set->num_cells_list), sizeof *loads);
+	count_loads(set, loads);
+	cp_redecompose_acp(set->decomposition, loads);
+	cp_get_acp_decomposition2_num_cells_list(set->decomposition, nc);
+	fprintf(stderr, "rank %d snapshot 0.502 nc %d %d %d\n", acp_rank(), nc[0], nc[1], nc[2]);
+	memcpy(set->num_cells_list, nc, sizeof nc);
+	free(set->num_cell_particles_list);
+	set->num_cell_particles_list = calloc(size_3d_half_margin(nc), sizeof *set->num_cell_particles_list);
+	set->cell_particle_offsets = realloc(set->cell_particle_offsets, size_3d_half_margin(nc) * sizeof *set->num_cell_particles_list);
+	cell_acp_particles(set, method->periods, set->positions, set->charges, set->types, set->num_particles, set->velocities, set->masses);
+	
+}
+
+static long count_send_particles(CP_ACP_PARTICLE_SET *set, const double periods[3], double (*r)[3], long n, long *counts){
+	long sendn = 0;
+	int rank = acp_rank();
+	int procs = acp_procs();
+	int allnc[3];
+	int c0[3];
+	int destsize = 0;
+	long i;
+	memset(counts, 0, procs * sizeof *counts);
+	cp_get_acp_decomposition2_num_all_cells_list(set->decomposition, allnc);
+	cp_get_acp_decomposition2_cell_offsets(set->decomposition, c0);
+	for(i = 0; i < n - sendn; i ++){
+		int k;
+		int c[3];
+		int dest;
+		for(k = 0; k < 3; k ++){
+			c[k] = r[i][k] / (periods[k] / allnc[k]);
+		}
+		dest = cp_get_acp_decomposition2_process(set->decomposition, c[0], c[1], c[2]);
+		if(counts[dest] == 0 && dest != rank){
+			destsize ++;
+		}
+		counts[dest] ++;
+		if(dest == rank){ 
+			NUM_CELL_PARTICLES_LIST(set, c[0] - c0[0], c[1] - c0[1], c[2] - c0[2]) ++;
+		}else{
+			swap_double3(r[i], r[n - sendn - 1]);
+			sendn ++;
+			i --;
+		}
+	}
+	return destsize;
+}
+
+static void cell_particles(CP_ACP_PARTICLE_SET *set, const double periods[3], double (*r)[3], const double *q, const int *types, double (*v)[3], long n){
+	fprintf(stderr, "rank %d cell_particles\n", acp_rank());
+	int allnc[3];
+	int c0[3];
+	int i;
+	cp_get_acp_decomposition2_num_all_cells_list(set->decomposition, allnc);
+	cp_get_acp_decomposition2_cell_offsets(set->decomposition, c0);
+	for(i = 0; i < n; i ++){
+		int k;
+		int c[3];
+		for(k = 0; k < 3; k ++){
+			c[k] = (int)(r[i][k] / (periods[k] / allnc[k])) - c0[k];
+		}
+		fprintf(stderr, "rank %d off[%d %d %d] %ld\n", acp_rank(), c[0], c[1], c[2], CELL_PARTICLE_OFFSETS(set, c[0], c[1], c[2]));
+		memcpy(set->positions[CELL_PARTICLE_OFFSETS(set, c[0], c[1], c[2])], r[i], sizeof r[i]);
+		if(set->charges != NULL){
+			set->charges[CELL_PARTICLE_OFFSETS(set, c[0], c[1], c[2])] = q[i]; 
+		}
+		if(set->types != NULL){
+			set->types[CELL_PARTICLE_OFFSETS(set, c[0], c[1], c[2])] = types[i]; 
+		}
+		if(set->velocities != NULL){
+			memcpy(set->velocities[CELL_PARTICLE_OFFSETS(set, c[0], c[1], c[2])], v[i], sizeof v[i]);
+		}
+		CELL_PARTICLE_OFFSETS(set, c[0], c[1], c[2]) ++;
+	}
+	fprintf(stderr, "rank %d cell_particles end\n", acp_rank());
+}
+
+static void cell_acp_particles(CP_ACP_PARTICLE_SET *set, const double periods[3], double (*r)[3], double *q, int *types, long n, double (*v)[3], double *m){
+	long *counts;
+	int procs = acp_procs();
+	long *sendcounts;
+	int *dests;
+	acp_ga_t *startergas;
+	int *recvbufoffsets;
+	int destsize;
+	int recvcount;
+	int rank = acp_rank();
+	int sendn = 0;
+	int p = 0;
+	int i;
+	counts = malloc(procs * sizeof *counts);
+	destsize = count_send_particles(set, periods, r, n, counts);
+	sendcounts = malloc(destsize * sizeof *sendcounts);
+	dests = malloc(destsize * sizeof *dests);
+	for(i = 0; i < procs; i ++){
+		if(counts[i] > 0 && i != rank){
+			sendcounts[p] = counts[i];
+			sendn += counts[i];
+			dests[p] = i;
+			p ++;
+		}
+	}
+	startergas = malloc(destsize * sizeof *startergas);
+	starter = acp_query_address(acp_query_starter_ga(rank));
+	for(i = 0; i < destsize; i ++){
+		startergas[i] = acp_query_starter_ga(dests[i]);
+	}
+	recvbufoffsets = malloc(destsize * sizeof *recvbufoffsets);
+	recvcount = count_receive_particles(startergas, sendcounts, destsize, recvbufoffsets);
+	set->num_particles = counts[rank] + recvcount;
+	set->positions = malloc(set->num_particles * sizeof *set->positions);
+	set->charges = q != NULL ? malloc(set->num_particles * sizeof *set->charges) : NULL;
+	set->types = types != NULL ? malloc(set->num_particles * sizeof *set->types) : NULL;
+	set->velocities = v != NULL ? malloc(set->num_particles * sizeof *set->velocities) : NULL;
+	set->masses = m != NULL ? malloc(set->num_particles * sizeof *set->masses) : NULL;
+	communicate_particles(set, periods, r + counts[rank], q != NULL ? q + counts[rank] : NULL, types != NULL ?  types + counts[rank] : NULL, sendn, v, m, sendcounts, dests, startergas, recvbufoffsets, destsize, recvcount);
+	cell_particles(set, periods, r, q, types, v, counts[rank]);
+	set->forces_or_potentials = malloc(set->num_particles * sizeof *set->forces_or_potentials);
+}
+
+static int count_receive_particles(const acp_ga_t *startergas, const long *sendcounts, int destsize, int *recvbufoffsets){
+	volatile static int recvn = 0;
+	static int initialized = 0;
+	static acp_atkey_t recvnatkey;
+	acp_handle_t handle;
+	int i;
+	if(!initialized){
+		recvnatkey = acp_register_memory((int *)&recvn, sizeof recvn, 0);
+		assert(recvnatkey != ACP_ATKEY_NULL);
+		starter->recvnga = acp_query_ga(recvnatkey, (int *)&recvn);
+		assert(starter->recvnga != ACP_GA_NULL);
+		initialized = 1;
+	}
+	acp_atkey_t recvbufoffsetsatkey = acp_register_memory(recvbufoffsets, destsize * sizeof *recvbufoffsets, 0);
+	assert(recvbufoffsetsatkey != ACP_ATKEY_NULL);
+	acp_ga_t recvbufoffsetsga = acp_query_ga(recvbufoffsetsatkey, recvbufoffsets);
+	assert(recvbufoffsetsga != ACP_GA_NULL);
+	acp_sync();
+	for(i = 0; i < destsize; i ++){
+		handle = acp_copy(acp_query_starter_ga(acp_rank()) + offsetof(struct starter, tmp), startergas[i] + offsetof(struct starter, recvnga), sizeof starter->recvnga, ACP_HANDLE_NULL);
+		acp_complete(handle);
+		handle = acp_add4(recvbufoffsetsga + i * sizeof *recvbufoffsets, starter->tmp, sendcounts[i], ACP_HANDLE_NULL);
+		assert(handle != ACP_HANDLE_NULL);
+		acp_complete(handle);
+	}
+	acp_sync();
+	int recvn_return = recvn;
+	recvn = 0;
+	return recvn_return;
+}
+
+static void communicate_particles(CP_ACP_PARTICLE_SET *set, const double periods[3], double (*r)[3], const double *q, const int *types, long sendn, double (*v)[3], double *m, const long *sendcounts, const int *dests, const acp_ga_t *startergas, const int *recvbufoffsets, int destsize, int recvn){
+	fprintf(stderr, "rank %d communicate_particles\n", acp_rank());
+	double (*sendrbuf)[3] = malloc(sendn * sizeof *sendrbuf);
+	double *sendqbuf = q != NULL ? malloc(sendn * sizeof *sendqbuf) : NULL;
+	int *sendtypesbuf = types != NULL ? malloc(sendn * sizeof *sendtypesbuf) : NULL;
+	double (*sendvbuf)[3] = v != NULL ? malloc(sendn * sizeof *sendvbuf) : NULL;
+	volatile double (*recvrbuf)[3] = malloc(recvn * sizeof *recvrbuf);
+	volatile double *recvqbuf = q != NULL ? malloc(recvn * sizeof *recvqbuf) : NULL;
+	volatile int *recvtypesbuf = types != NULL ? malloc(recvn * sizeof *recvtypesbuf) : NULL;
+	volatile double (*recvvbuf)[3] = v != NULL ? malloc(recvn * sizeof *recvvbuf) : NULL;
+	acp_atkey_t recvrbufatkey = recvn != 0 ? acp_register_memory(recvrbuf, recvn * sizeof *recvrbuf, 0) : ACP_ATKEY_NULL;
+	acp_atkey_t recvqbufatkey = q != NULL && recvn != 0 ? acp_register_memory(recvqbuf, recvn * sizeof *recvqbuf, 0) : ACP_ATKEY_NULL;
+	acp_atkey_t recvtypesbufatkey = types != NULL && recvn != 0 ? acp_register_memory(recvtypesbuf, recvn * sizeof *recvtypesbuf, 0) : ACP_ATKEY_NULL;
+	acp_atkey_t recvvbufatkey = v != NULL && recvn != 0 ? acp_register_memory(recvvbuf, recvn * sizeof *recvvbuf, 0) : ACP_ATKEY_NULL;
+	fprintf(stderr, "rank %d recvrbuf %p\n", acp_rank(), recvrbuf);
+	starter->rbufga = recvrbufatkey != ACP_ATKEY_NULL ? acp_query_ga(recvrbufatkey, recvrbuf) : ACP_GA_NULL;
+	starter->qbufga = recvqbufatkey != ACP_ATKEY_NULL ? acp_query_ga(recvqbufatkey, recvqbuf) : ACP_GA_NULL;
+	starter->typesbufga = recvtypesbufatkey != ACP_ATKEY_NULL ? acp_query_ga(recvtypesbufatkey, recvtypesbuf) : ACP_GA_NULL;
+	starter->vbufga = recvvbufatkey != ACP_ATKEY_NULL ? acp_query_ga(recvvbufatkey, recvvbuf) : ACP_GA_NULL;
+	acp_sync();
+	pack_particles(set, periods, r, q, types, v, sendn, dests, sendcounts, destsize, sendrbuf, sendqbuf, sendtypesbuf, sendvbuf);
+	int i;
+	fprintf(stderr, "rank %d recvn %d\n", acp_rank(), recvn);
+	for(i = 0; i < destsize; i ++){
+		fprintf(stderr, "rank %d dests[i] %d recvbufoffsets[i] %d\n", acp_rank(), dests[i], recvbufoffsets[i]);
+	}
+	communicate(destsize, recvbufoffsets, sendrbuf, sendqbuf, sendtypesbuf, sendvbuf, sendn, sendcounts, startergas);
+	count_receive_cell_particles(set, periods, recvrbuf, recvn);
+	initialize_cell_particle_offsets(set);
+	cell_particles(set, periods, recvrbuf, recvqbuf, recvtypesbuf, recvvbuf, recvn);
+	if(recvrbufatkey != ACP_ATKEY_NULL){
+		assert(acp_unregister_memory(recvrbufatkey) == 0);
+	}
+	if(recvqbufatkey != ACP_ATKEY_NULL){
+		assert(acp_unregister_memory(recvqbufatkey) == 0);
+	}
+	if(recvtypesbufatkey != ACP_ATKEY_NULL){
+		assert(acp_unregister_memory(recvtypesbufatkey) == 0);
+	}
+	if(recvvbufatkey != ACP_ATKEY_NULL){
+		assert(acp_unregister_memory(recvvbufatkey) == 0);
+	}
+	free(sendrbuf);
+	free(sendqbuf);
+	free(sendtypesbuf);
+	free(sendvbuf);
+	fprintf(stderr, "rank %d free recvrbuf %p\n", acp_rank(), recvrbuf);
+	free(recvrbuf);
+	fprintf(stderr, "rank %d free recvrbuf end\n", acp_rank());
+	free(recvqbuf);
+	free(recvtypesbuf);
+	free(recvvbuf);
+	fprintf(stderr, "rank %d communicate_particles end\n", acp_rank());
+}
+
+static void pack_particles(CP_ACP_PARTICLE_SET *set, const double periods[3], double (*r)[3], const double *q, const int *types, double (*v)[3], long n, int *dests, long *counts, int destsize, double (*rbuf)[3], double *qbuf, int *typesbuf, double (*vbuf)[3]){
+	int procs = acp_procs();
+	int allnc[3];
+	long *displs = malloc(procs * sizeof *displs);
+	long displ = 0;
+	long i;
+	for(i = 0; i < destsize; i ++){
+		displs[dests[i]] = displ;
+		displ += counts[i];
+	}
+	cp_get_acp_decomposition2_num_all_cells_list(set->decomposition, allnc);
+	for(i = 0; i < n; i ++){
+		int c[3];
+		int dest;
+		int k;
+		for(k = 0; k < 3; k ++){
+			c[k] = r[i][k] / (periods[k] / allnc[k]);
+		}
+		dest = cp_get_acp_decomposition2_process(set->decomposition, c[0], c[1], c[2]);
+		memcpy(rbuf + displs[dest], r[i], sizeof r[i]);
+		if(qbuf != NULL){
+			qbuf[displs[dest]] = q[i];
+		}
+		if(typesbuf != NULL){
+			typesbuf[displs[dest]] = types[i];
+		}
+		if(vbuf != NULL){
+			memcpy(vbuf + displs[dest], v[i], sizeof v[i]);
+		}
+		displs[dest] ++;
+	}
+	free(displs);
+}
+
+static void communicate(int destsize, const int *recvbufoffsets, double (*sendrbuf)[3], const double *sendqbuf, const int *sendtypesbuf, double (*sendvbuf)[3], long sendn, const long *sendcounts, acp_ga_t *startergas){
+	fprintf(stderr, "rank %d communicate\n", acp_rank());
+	acp_ga_t *recvrbufgas = malloc(destsize * sizeof *recvrbufgas);
+	acp_ga_t *recvqbufgas = sendqbuf != NULL ? malloc(destsize * sizeof *recvqbufgas) : ACP_GA_NULL;
+	acp_ga_t *recvtypesbufgas = sendtypesbuf != NULL ? malloc(destsize * sizeof *recvtypesbufgas) : ACP_GA_NULL;
+	acp_ga_t *recvvbufgas = sendvbuf != NULL ? malloc(destsize * sizeof *recvvbufgas) : ACP_GA_NULL;
+	acp_atkey_t sendrbufatkey = sendn != 0 ? acp_register_memory(sendrbuf, sendn * sizeof *sendrbuf, 0) : ACP_ATKEY_NULL;
+	acp_atkey_t sendqbufatkey = sendqbuf != NULL && sendn != 0 ? acp_register_memory(sendqbuf, sendn * sizeof *sendqbuf, 0) : ACP_ATKEY_NULL;
+	acp_atkey_t sendtypesbufatkey = sendtypesbuf != NULL && sendn != 0 ? acp_register_memory(sendtypesbuf, sendn * sizeof *sendtypesbuf, 0) : ACP_ATKEY_NULL;
+	acp_atkey_t sendvbufatkey = sendvbuf != NULL && sendn != 0 ? acp_register_memory(sendvbuf, sendn * sizeof *sendvbuf, 0) : ACP_ATKEY_NULL;
+	acp_handle_t handle = ACP_HANDLE_NULL;
+	long c = 0;
+	int i;
+#if 0
+	for(i = 0; i < destsize; i ++){
+		handle = acp_copy(recvrbufgas[i], startergas[i] + offsetof(struct starter, rbufga), sizeof ((struct starter *)0)->rbufga, ACP_HANDLE_NULL);
+		if(sendqbuf != NULL){
+			handle = acp_copy(recvqbufgas[i], startergas[i] + offsetof(struct starter, qbufga), sizeof ((struct starter *)0)->qbufga, ACP_HANDLE_NULL);
+		}
+		if(sendvbuf != NULL){
+			handle = acp_copy(recvvbufgas[i], startergas[i] + offsetof(struct starter, vbufga), sizeof ((struct starter *)0)->vbufga, ACP_HANDLE_NULL);
+		}
+	}
+	acp_complete(handle);
+#endif
+	acp_ga_t starterga = acp_query_starter_ga(acp_rank());
+	for(i = 0; i < destsize; i ++){
+		if(sendrbufatkey != ACP_ATKEY_NULL){
+			handle = acp_copy(starterga + offsetof(struct starter, tmp), startergas[i] + offsetof(struct starter, rbufga), sizeof ((struct starter *)0)->rbufga, ACP_HANDLE_NULL);
+			acp_complete(handle);
+			handle = acp_copy(starter->tmp + recvbufoffsets[i] * sizeof *sendrbuf, acp_query_ga(sendrbufatkey, sendrbuf) + c * sizeof *sendrbuf, sendcounts[i] * sizeof *sendrbuf, ACP_HANDLE_NULL);
+			fprintf(stderr, "src %d dst %d c %ld\n", acp_rank(), acp_query_rank(startergas[i]), sendcounts[i]);
+			acp_complete(handle);
+		}
+		if(sendqbuf != NULL){
+			acp_complete(handle);
+			handle = acp_copy(starterga + offsetof(struct starter, tmp), startergas[i] + offsetof(struct starter, qbufga), sizeof ((struct starter *)0)->qbufga, ACP_HANDLE_NULL);
+			acp_complete(handle);
+			handle = acp_copy(starter->tmp + recvbufoffsets[i] * sizeof *sendqbuf, acp_query_ga(sendqbufatkey, sendqbuf) + c * sizeof *sendqbuf, sendcounts[i] * sizeof *sendqbuf, ACP_HANDLE_NULL);
+			acp_complete(handle);
+		}
+		if(sendtypesbuf != NULL){
+			acp_complete(handle);
+			handle = acp_copy(starterga + offsetof(struct starter, tmp), startergas[i] + offsetof(struct starter, typesbufga), sizeof ((struct starter *)0)->typesbufga, ACP_HANDLE_NULL);
+			acp_complete(handle);
+			handle = acp_copy(starter->tmp + recvbufoffsets[i] * sizeof *sendtypesbuf, acp_query_ga(sendtypesbufatkey, sendtypesbuf) + c * sizeof *sendtypesbuf, sendcounts[i] * sizeof *sendtypesbuf, ACP_HANDLE_NULL);
+			acp_complete(handle);
+		}
+		if(sendvbuf != NULL){
+			acp_complete(handle);
+			handle = acp_copy(starterga + offsetof(struct starter, tmp), startergas[i] + offsetof(struct starter, vbufga), sizeof ((struct starter *)0)->vbufga, ACP_HANDLE_NULL);
+			acp_complete(handle);
+			handle = acp_copy(starter->tmp + recvbufoffsets[i] * sizeof *sendvbuf, acp_query_ga(sendvbufatkey, sendvbuf) + c * sizeof *sendvbuf, sendcounts[i] * sizeof *sendvbuf, ACP_HANDLE_NULL);
+			acp_complete(handle);
+		}
+		c += sendcounts[i];
+	}
+	acp_sync();
+	if(sendrbufatkey != ACP_ATKEY_NULL){
+		assert(acp_unregister_memory(sendrbufatkey) == 0);
+	}
+	if(sendqbufatkey != ACP_ATKEY_NULL){
+		assert(acp_unregister_memory(sendqbufatkey) == 0);
+	}
+	if(sendtypesbufatkey != ACP_ATKEY_NULL){
+		assert(acp_unregister_memory(sendtypesbufatkey) == 0);
+	}
+	if(sendvbufatkey != ACP_ATKEY_NULL){
+		assert(acp_unregister_memory(sendvbufatkey) == 0);
+	}
+	free(recvrbufgas);
+	free(recvqbufgas);
+	free(recvtypesbufgas);
+	free(recvvbufgas);
+	acp_sync();
+	fprintf(stderr, "rank %d communicate end\n", acp_rank());
+}
+
+static void count_receive_cell_particles(CP_ACP_PARTICLE_SET *set, const double periods[3], double (*rbuf)[3], long n){
+	int allnc[3];
+	int c0[3];
+	long i;
+	cp_get_acp_decomposition2_num_all_cells_list(set->decomposition, allnc);
+	cp_get_acp_decomposition2_cell_offsets(set->decomposition, c0);
+	for(i = 0; i < n; i ++){
+		int c[3];
+		int k;
+		for(k = 0; k < 3; k ++){
+			c[k] = (int)(rbuf[i][k] / (periods[k] / allnc[k])) - c0[k];
+		}
+		NUM_CELL_PARTICLES_LIST(set, c[0], c[1], c[2]) ++;
+	}
+}
+
+static void initialize_cell_particle_offsets(CP_ACP_PARTICLE_SET *set){
+	long c = 0;
+	int x, y, z;
+	fprintf(stderr, "rank %d nc %d %d %d\n", acp_rank(),set->num_cells_list[0],set->num_cells_list[1],set->num_cells_list[2]);
+	for(x = 0; x < set->num_cells_list[0]; x ++){
+		for(y = 0; y < set->num_cells_list[1]; y ++){
+			for(z = 0; z < set->num_cells_list[2]; z ++){
+			  fprintf(stderr, "rank %d %ld num[%d %d %d]\n", acp_rank(), NUM_CELL_PARTICLES_LIST(set, x, y, z), x,y,z);
+				CELL_PARTICLE_OFFSETS(set, x, y, z) = c;
+				c += NUM_CELL_PARTICLES_LIST(set, x, y, z);
+				fprintf(stderr, "rank %d c %ld\n", acp_rank(), c);
+			}
+		}
+	}
+}
+
+static void count_loads(CP_ACP_PARTICLE_SET *set, long *loads){
+	int x0, y0, z0;
+	for(x0 = 0; x0 < set->num_cells_list[0]; x0 ++){
+		for(y0 = 0; y0 < set->num_cells_list[1]; y0 ++){
+			for(z0 = 0; z0 < set->num_cells_list[2]; z0 ++){
+				int dx, dy, dz;
+				for(dx = -1; dx <= 1; dx ++){
+					int x = x0 + dx;
+					for(dy = -1; dy <= 1; dy ++){
+						int y = y0 + dy;
+						for(dz = -1; dz <= 1; dz ++){
+							int z = z0 + dz;
+							if(dx == -1 || dx == 0 && (dy == -1 || dy == 0 && dz == -1)){
+								LOADS(set, x0, y0, z0) += NUM_CELL_PARTICLES_LIST(set, x, y, z) * NUM_CELL_PARTICLES_LIST(set, x0, y0, z0);
+							}else if(dx == 0 && dy == 0 && dz == 0){
+								LOADS(set, x0, y0, z0) += sq(NUM_CELL_PARTICLES_LIST(set, x0, y0, z0)) / 2;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

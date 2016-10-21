@@ -1,0 +1,44 @@
+#ifndef __BCL_H__
+#define __BCL_H__
+
+typedef uint32_t ace_rank_t;
+typedef struct{
+  ace_rank_t rank;
+  uint32_t ltag;
+} ace_tag_t;
+typedef uint64_t ace_offset_t;
+typedef int64_t ace_handle_t;
+
+extern int ace_init(int* argc, char** argv, uint64_t special_tag_size);
+extern int ace_reset(ace_rank_t new_rank, uint64_t new_special_tag_size);
+extern int ace_finalize(void);
+extern ace_rank_t ace_rank(void);
+extern ace_rank_t ace_procs(void);
+extern ace_tag_t ace_query_tag(void* addr, uint64_t size);
+extern ace_tag_t ace_query_offset(ace_tag_t tag, void* addr);
+extern ace_tag_t ace_query_special_tag(ace_rank_t rank);
+extern int ace_release_tag(ace_tag_t tag);
+extern int ace_test(ace_handle_t handle);
+extern int ace_wait(ace_handle_t handle);
+extern ace_handle_t ace_fance_all(void);
+extern ace_handle_t ace_fance(ace_tag_t tag);
+extern ace_handle_t ace_copy(ace_tag_t dst_tag, ace_offset_t dst_offset, ace_tag_t src_tag, ace_offset_t src_offset, uint64_t size);
+extern ace_handle_t ace_cas4(uint32_t* dst, ace_tag_t tag, ace_offset_t offset, uint32_t compare, uint32_t data);
+extern ace_handle_t ace_cas8(uint64_t* dst, ace_tag_t tag, ace_offset_t offset, uint64_t compare, uint64_t data);
+extern ace_handle_t ace_swap4(uint32_t* dst, ace_tag_t tag, ace_offset_t offset, uint32_t data);
+extern ace_handle_t ace_swap8(uint64_t* dst, ace_tag_t tag, ace_offset_t offset, uint64_t data);
+extern ace_handle_t ace_add4(uint32_t* dst, ace_tag_t tag, ace_offset_t offset, uint32_t data);
+extern ace_handle_t ace_add8(uint64_t* dst, ace_tag_t tag, ace_offset_t offset, uint64_t data);
+extern ace_handle_t ace_xor4(uint32_t* dst, ace_tag_t tag, ace_offset_t offset, uint32_t data);
+extern ace_handle_t ace_xor8(uint64_t* dst, ace_tag_t tag, ace_offset_t offset, uint64_t data);
+extern ace_handle_t ace_or4(uint32_t* dst, ace_tag_t tag, ace_offset_t offset, uint32_t data);
+extern ace_handle_t ace_or8(uint64_t* dst, ace_tag_t tag, ace_offset_t offset, uint64_t data);
+extern ace_handle_t ace_and4(uint32_t* dst, ace_tag_t tag, ace_offset_t offset, uint32_t data);
+extern ace_handle_t ace_and8(uint64_t* dst, ace_tag_t tag, ace_offset_t offset, uint64_t data);
+extern void* ace_read_value(char* key);
+extern int ace_write_value(char* key, void* ptr, size_t size);
+extern int ace_create_value(char* key, void* ptr, size_t size);
+extern int ace_replace_value(char* key, void* ptr, size_t size);
+extern int ace_delete_value(char* key);
+
+#endif /* bcl.h */

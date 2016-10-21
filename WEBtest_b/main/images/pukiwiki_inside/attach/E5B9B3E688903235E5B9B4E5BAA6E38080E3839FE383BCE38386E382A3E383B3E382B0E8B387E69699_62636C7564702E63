@@ -1,0 +1,125 @@
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <pthread.h>
+#include "bcl.h"
+#include "bcludp_sync.h"
+#include "bcludp_cq.h"
+
+#ifdef DEBUG
+#define debug
+#else
+#define debug 1 ? (void)0 :
+#endif
+
+#define ACE_SPECIAL_TAG 0
+
+static int rank;
+static int procs;
+static int gpid;
+static int port;
+static char* parentip;
+static int parentport;
+static int numchild;
+static int sptag_size;
+
+static pthread_t comm_thread_id;
+
+static void* comm_thread_func ( void *param )
+{
+  debug printf("comm_thread(rank=%d) begin\n", rank);
+  
+  /* Polling loop for cq, listening socket and reading sockets */
+  while ( 1 ) {
+    if ( cq_test( ) ) {
+      volatile cqe_t* cqe = cq_read ( );
+      if ( cqe->init.command == CMD_INIT ) {
+        debug printf("comm_thread(rank=%d) process init command\n", rank);
+        cq_next ( );
+        cq_dequeue ( );
+      } else if ( cqe->finalize.command == CMD_FINALIZE ) {
+        debug printf("comm_thread(rank=%d) process finalize command\n", rank);
+        cq_next ( );
+        cq_dequeue ( );
+        break;
+      } else {
+        cq_next ( );
+        cq_dequeue ( );
+      }
+    } else {
+      ;
+    }
+    /* TBD */
+  }
+  debug printf("comm_thread(rank=%d) end\n", rank);
+  
+  return NULL;
+}
+
+int ace_init ( int* argc, char** argv, uint64_t special_tag_size )
+{
+  if ( *argc != 8 ) return -1;
+  rank       = strtol ( argv[1], NULL, 0 );
+  procs      = strtol ( argv[2], NULL, 0 );
+  gpid       = strtol ( argv[3], NULL, 0 );
+  port       = strtol ( argv[4], NULL, 0 );
+  parentip   =          argv[5];
+  parentport = strtol ( argv[6], NULL, 0 );
+  numchild   = strtol ( argv[7], NULL, 0 );
+  sptag_size = special_tag_size;
+  argv[7] = argv[0];
+  *argc -= 7;
+  argv += 7;
+  
+  debug printf("ace_init rank=%d, procs=%d, gpid=%x, port=%x, pip=%s, pport=%x, nchild=%d, sptag_size=%d\n",
+               rank, procs, gpid, port, parentip, parentport, numchild, sptag_size);
+  
+  cq_init ( );  
+  
+  pthread_create ( &comm_thread_id, NULL, comm_thread_func, NULL );
+  
+  cq_block( enqueue_init() ) ;
+  
+  return 0;
+}
+
+int ace_reset ( ace_rank_t new_rank, uint64_t new_special_tag_size )
+{
+  cq_block( enqueue_finalize() ) ;
+  
+  rank = new_rank;
+  sptag_size = new_special_tag_size;
+  
+  cq_block( enqueue_init() ) ;
+  
+  return 0;
+}
+
+int ace_finalize ( void )
+{
+  cq_block( enqueue_finalize() ) ;
+  
+  pthread_join(comm_thread_id, NULL);
+  
+  return 0;
+}
+
+/* test program */
+int main ( int argc, char** argv )
+{
+  int r;
+  if ( r = ace_init( &argc, argv, 1024*1024 ) ) return r;
+  debug printf("rank %d initialized, cqrp=%d, cqwp=%d, cqcp=%d\n", rank, cqrp, cqwp, cqcp);
+  
+  if ( r = ace_finalize() ) return r;
+  debug printf("rank %d finalized, cqrp=%d, cqwp=%d, cqcp=%d\n", rank, cqrp, cqwp, cqcp);
+  return 0;
+}
+

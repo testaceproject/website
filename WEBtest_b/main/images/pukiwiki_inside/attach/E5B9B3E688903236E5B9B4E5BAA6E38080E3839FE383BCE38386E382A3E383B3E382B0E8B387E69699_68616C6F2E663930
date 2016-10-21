@@ -1,0 +1,708 @@
+!------------------------------------------------------------------------------&
+! 3D halo communication subroutine for ACP library
+! built on 2015.03.15 by Keiichiro Fukazawa
+!------------------------------------------------------------------------------&
+!
+module halo
+!
+  implicit none
+!
+  integer :: irank, isize, ier
+  integer :: irankx, iranky, irankz, isizex, isizey, isizez
+  integer :: irx, iry, irz, ilx, ily, ilz
+  integer :: irxry, irxly, irxrz, irxlz
+  integer :: ilxry, ilxly, ilxrz, ilxlz
+  integer :: iryrz, irylz, ilyrz, ilylz
+  integer :: irxryrz, irxrylz, irxlyrz, irxlylz
+  integer :: ilxryrz, ilxrylz, ilxlyrz, ilxlylz
+!
+  integer :: ireqp(12), ireql(24), ireqs(16)
+!
+  integer :: xs, xe, ys, ye, zs, ze
+  integer :: nwxy, nwyz, nwzx, nwx, nwy, nwz
+!
+  integer, allocatable :: itable(:,:,:)
+!----buffer of plane communications----!
+  real, allocatable :: ftxy1s(:,:), ftyz1s(:,:), ftzx1s(:,:)
+  real, allocatable :: ftxy2s(:,:), ftyz2s(:,:), ftzx2s(:,:)
+  real, allocatable :: ftxy1r(:,:), ftyz1r(:,:), ftzx1r(:,:)
+  real, allocatable :: ftxy2r(:,:), ftyz2r(:,:), ftzx2r(:,:)
+!----buffer of line communications----!
+  real, allocatable :: ftx1s(:), fty1s(:), ftz1s(:)
+  real, allocatable :: ftx2s(:), fty2s(:), ftz2s(:)
+  real, allocatable :: ftx3s(:), fty3s(:), ftz3s(:)
+  real, allocatable :: ftx4s(:), fty4s(:), ftz4s(:)
+  real, allocatable :: ftx1r(:), fty1r(:), ftz1r(:)
+  real, allocatable :: ftx2r(:), fty2r(:), ftz2r(:)
+  real, allocatable :: ftx3r(:), fty3r(:), ftz3r(:)
+  real, allocatable :: ftx4r(:), fty4r(:), ftz4r(:)
+!----buffer of spot communications----!
+  real, allocatable :: ftxyz1s(:), ftxyz2s(:), ftxyz3s(:), ftxyz4s(:)
+  real, allocatable :: ftxyz5s(:), ftxyz6s(:), ftxyz7s(:), ftxyz8s(:)
+  real, allocatable :: ftxyz1r(:), ftxyz2r(:), ftxyz3r(:), ftxyz4r(:)
+  real, allocatable :: ftxyz5r(:), ftxyz6r(:), ftxyz7r(:), ftxyz8r(:)
+!
+  public :: halo_init, halo3d, halo3d_start, halo3d_end, clock, halo_timeinfo
+!
+  contains
+!------------------------------------------------------------------------------&
+! 1. Initialization for 3D halo stencil communication
+!------------------------------------------------------------------------------&
+  subroutine halo_init(npex, npey, npez, pos)
+!------------------------------------------------------------------------------&
+!
+    include 'mpif.h'
+    integer, intent(in) :: npex, npey, npez
+    integer, intent(in) :: pos(6)
+!
+    integer :: i, j, k, irank1
+    integer :: req = MPI_THREAD_SERIALIZED
+    integer :: prv
+    integer :: nx, ny, nz
+!
+    allocate (itable(-1:npex,-1:npey,-1:npez))
+!
+!   call mpi_init(ier)
+    call mpi_init_thread(req, prv,ier)
+    call mpi_comm_rank(mpi_comm_world, irank, ier)
+    call mpi_comm_size(mpi_comm_world, isize, ier)
+!
+    isizex = npex
+    isizey = npey
+    isizez = npez
+!
+    do k = -1, isizez
+      do j = -1, isizey
+        do i = -1, isizex
+          itable(i,j,k) = MPI_PROC_NULL
+        end do
+      end do
+    end do
+!
+    irank1 = 0
+    do k = 0, isizez-1
+      do j = 0, isizey-1
+        do i = 0, isizex-1
+          itable(i,j,k) = irank1
+          if(irank == irank1) then
+            irankx = i
+            iranky = j
+            irankz = k
+          end if
+          irank1 = irank1 + 1
+        end do
+      end do
+    end do
+!
+!
+!For plane
+    irx     = itable(irankx+1, iranky,   irankz  )
+    ilx     = itable(irankx-1, iranky,   irankz  )
+    iry     = itable(irankx,   iranky+1, irankz  )
+    ily     = itable(irankx,   iranky-1, irankz  )
+    irz     = itable(irankx,   iranky,   irankz+1)
+    ilz     = itable(irankx,   iranky,   irankz-1)
+!For line
+    irxry   = itable(irankx+1, iranky+1, irankz  )
+    irxly   = itable(irankx+1, iranky-1, irankz  )
+    ilxly   = itable(irankx-1, iranky-1, irankz  )
+    ilxry   = itable(irankx-1, iranky+1, irankz  )
+    iryrz   = itable(irankx,   iranky+1, irankz+1)
+    irylz   = itable(irankx,   iranky+1, irankz-1)
+    ilylz   = itable(irankx,   iranky-1, irankz-1)
+    ilyrz   = itable(irankx,   iranky-1, irankz+1)
+    irxrz   = itable(irankx+1, iranky,   irankz+1)
+    ilxrz   = itable(irankx-1, iranky,   irankz+1)
+    ilxlz   = itable(irankx-1, iranky,   irankz-1)
+    irxlz   = itable(irankx+1, iranky,   irankz-1)
+!For spot
+    irxryrz = itable(irankx+1, iranky+1, irankz+1)
+    irxlyrz = itable(irankx+1, iranky-1, irankz+1)
+    irxlylz = itable(irankx+1, iranky-1, irankz-1)
+    irxrylz = itable(irankx+1, iranky+1, irankz-1)
+    ilxlylz = itable(irankx-1, iranky-1, irankz-1)
+    ilxlyrz = itable(irankx-1, iranky-1, irankz+1)
+    ilxryrz = itable(irankx-1, iranky+1, irankz+1)
+    ilxrylz = itable(irankx-1, iranky+1, irankz-1)
+!
+    xs = pos(1)
+    xe = pos(2)
+    ys = pos(3)
+    ye = pos(4)
+    zs = pos(5)
+    ze = pos(6)
+!
+    nx   = xe - xs + 1
+    ny   = ye - ys + 1
+    nz   = ze - zs + 1
+    nwxy = nx * ny
+    nwyz = ny * nz
+    nwzx = nz * nx
+    nwx  = nx 
+    nwy  = ny 
+    nwz  = nz 
+!
+! buffor allocation
+!----buffer of plane communications----!
+    allocate (ftxy1s(nx,ny), ftyz1s(ny,nz), ftzx1s(nx,nz))
+    allocate (ftxy2s(nx,ny), ftyz2s(ny,nz), ftzx2s(nx,nz))
+    allocate (ftxy1r(nx,ny), ftyz1r(ny,nz), ftzx1r(nx,nz))
+    allocate (ftxy2r(nx,ny), ftyz2r(ny,nz), ftzx2r(nx,nz))
+!----buffer of line communications----!
+    allocate (ftx1s(nx), fty1s(ny), ftz1s(nz))
+    allocate (ftx2s(nx), fty2s(ny), ftz2s(nz))
+    allocate (ftx3s(nx), fty3s(ny), ftz3s(nz))
+    allocate (ftx4s(nx), fty4s(ny), ftz4s(nz))
+    allocate (ftx1r(nx), fty1r(ny), ftz1r(nz))
+    allocate (ftx2r(nx), fty2r(ny), ftz2r(nz))
+    allocate (ftx3r(nx), fty3r(ny), ftz3r(nz))
+    allocate (ftx4r(nx), fty4r(ny), ftz4r(nz))
+!----buffer of spot communications----!
+    allocate (ftxyz1s(1), ftxyz2s(1), ftxyz3s(1), ftxyz4s(1))
+    allocate (ftxyz5s(1), ftxyz6s(1), ftxyz7s(1), ftxyz8s(1))
+    allocate (ftxyz1r(1), ftxyz2r(1), ftxyz3r(1), ftxyz4r(1))
+    allocate (ftxyz5r(1), ftxyz6r(1), ftxyz7r(1), ftxyz8r(1))
+!    
+! Initilization
+    ftyz1s(:,:) = 0.0
+    ftzx1s(:,:) = 0.0
+    ftxy1s(:,:) = 0.0
+    ftyz2s(:,:) = 0.0
+    ftzx2s(:,:) = 0.0
+    ftxy2s(:,:) = 0.0
+    ftyz1r(:,:) = 0.0
+    ftzx1r(:,:) = 0.0
+    ftxy1r(:,:) = 0.0
+    ftyz2r(:,:) = 0.0
+    ftzx2r(:,:) = 0.0
+    ftxy2r(:,:) = 0.0
+!
+    ftx1s(:) = 0.0
+    fty1s(:) = 0.0
+    ftz1s(:) = 0.0
+    ftx2s(:) = 0.0
+    fty2s(:) = 0.0
+    ftz2s(:) = 0.0
+    ftx3s(:) = 0.0
+    fty3s(:) = 0.0
+    ftz3s(:) = 0.0
+    ftx4s(:) = 0.0
+    fty4s(:) = 0.0
+    ftz4s(:) = 0.0
+    ftx1r(:) = 0.0
+    fty1r(:) = 0.0
+    ftz1r(:) = 0.0
+    ftx2r(:) = 0.0
+    fty2r(:) = 0.0
+    ftz2r(:) = 0.0
+    ftx3r(:) = 0.0
+    fty3r(:) = 0.0
+    ftz3r(:) = 0.0
+    ftx4r(:) = 0.0
+    fty4r(:) = 0.0
+    ftz4r(:) = 0.0
+!
+  end subroutine halo_init
+!------------------------------------------------------------------------------&
+!
+!
+!------------------------------------------------------------------------------&
+! 2. non-blocking halo communication
+!------------------------------------------------------------------------------&
+  subroutine halo3d(nxx, nyy, nzz, f)
+!------------------------------------------------------------------------------&
+    include 'mpif.h'
+    integer, intent(in) :: nxx, nyy, nzz
+    real, intent(inout) :: f(0:nxx+1, 0:nyy+1, 0:nzz+1)
+!
+!   integer :: i
+!----for time----!
+    real(kind=8) :: zt(7)
+!
+    integer :: istatp(mpi_status_size, 12)
+    integer :: istatl(mpi_status_size, 24)
+    integer :: istats(mpi_status_size, 16)
+!
+    call clock(zt(1))
+!
+!--- Plane comunication ---!
+    ftyz1s(:,:) = f(xs,   ys:ye,zs:ze)
+    call mpi_irecv(ftyz1r, nwyz, mpi_real, irx, 100,   &
+    &              mpi_comm_world, ireqp(1), ier)
+    call mpi_isend(ftyz1s, nwyz, mpi_real, ilx, 100,   &
+    &              mpi_comm_world, ireqp(2), ier)
+!
+    ftzx1s(:,:) = f(xs:xe,ys,   zs:ze)
+    call mpi_irecv(ftzx1r, nwzx, mpi_real, iry, 101,   &
+    &              mpi_comm_world, ireqp(3), ier)
+    call mpi_isend(ftzx1s, nwzx, mpi_real, ily, 101,   &
+    &              mpi_comm_world, ireqp(4), ier)
+!
+    ftxy1s(:,:) = f(xs:xe,ys:ye,   zs)
+    call mpi_irecv(ftxy1r, nwxy, mpi_real, irz, 102,   &
+    &              mpi_comm_world, ireqp(5), ier)
+    call mpi_isend(ftxy1s, nwxy, mpi_real, ilz, 102,   &
+    &              mpi_comm_world, ireqp(6), ier)
+!
+    call clock(zt(2))
+!
+    ftyz2s(:,:) = f(xe,   ys:ye,zs:ze)
+    call mpi_irecv(ftyz2r, nwyz, mpi_real, ilx, 103,   &
+    &              mpi_comm_world, ireqp(7), ier)
+    call mpi_isend(ftyz2s, nwyz, mpi_real, irx, 103,   &
+    &              mpi_comm_world, ireqp(8), ier)
+!
+    ftzx2s(:,:) = f(xs:xe,ye,   zs:ze)
+    call mpi_irecv(ftzx2r, nwzx, mpi_real, ily, 104,   &
+    &              mpi_comm_world, ireqp(9), ier)
+    call mpi_isend(ftzx2s, nwzx, mpi_real, iry, 104,   &
+    &              mpi_comm_world, ireqp(10), ier)
+!
+    ftxy2s(:,:) = f(xs:xe,ys:ye,   ze)
+    call mpi_irecv(ftxy2r, nwxy, mpi_real, ilz, 105,   &
+    &              mpi_comm_world, ireqp(11), ier)
+    call mpi_isend(ftxy2s, nwxy, mpi_real, irz, 105,   &
+    &              mpi_comm_world, ireqp(12), ier)
+!
+    call clock(zt(3))
+!
+    call mpi_waitall(12, ireqp, istatp, ier)
+!
+    call clock(zt(4))
+!
+    f(xe+1 ,ys:ye,zs:ze) = ftyz1r(:,:)
+    f(xs:xe,ye+1 ,zs:ze) = ftzx1r(:,:)
+    f(xs:xe,ys:ye,ze+1 ) = ftxy1r(:,:)
+    f(xs-1 ,ys:ye,zs:ze) = ftyz2r(:,:)
+    f(xs:xe,ys-1 ,zs:ze) = ftzx2r(:,:)
+    f(xs:xe,ys:ye,zs-1 ) = ftxy2r(:,:)
+!
+    call clock(zt(5))
+!
+!--- Line cominication ---!
+! "send" e --> right, s --> left"
+    ftx1s(:) = f(xs:xe,ye   ,zs   )
+    ftx2s(:) = f(xs:xe,ye   ,ze   )
+    ftx3s(:) = f(xs:xe,ys   ,zs   )
+    ftx4s(:) = f(xs:xe,ys   ,ze   )
+    fty1s(:) = f(xe   ,ys:ye,zs   )
+    fty2s(:) = f(xe   ,ys:ye,ze   )
+    fty3s(:) = f(xs   ,ys:ye,zs   )
+    fty4s(:) = f(xs   ,ys:ye,ze   )
+    ftz1s(:) = f(xe   ,ys   ,zs:ze)
+    ftz2s(:) = f(xe   ,ye   ,zs:ze)
+    ftz3s(:) = f(xs   ,ys   ,zs:ze)
+    ftz4s(:) = f(xs   ,ye   ,zs:ze)
+!
+! X-line
+    call mpi_irecv(ftx1r, nwx, mpi_real, ilyrz, 200,   &
+    &              mpi_comm_world, ireql(1), ier)
+    call mpi_isend(ftx1s, nwx, mpi_real, irylz, 200,   &
+    &              mpi_comm_world, ireql(2), ier)
+!
+    call mpi_irecv(ftx2r, nwx, mpi_real, ilylz, 201,   &
+    &              mpi_comm_world, ireql(3), ier)
+    call mpi_isend(ftx2s, nwx, mpi_real, iryrz, 201,   &
+    &              mpi_comm_world, ireql(4), ier)
+!
+    call mpi_irecv(ftx3r, nwx, mpi_real, iryrz, 202,   &
+    &              mpi_comm_world, ireql(5), ier)
+    call mpi_isend(ftx3s, nwx, mpi_real, ilylz, 202,   &
+    &              mpi_comm_world, ireql(6), ier)
+!
+    call mpi_irecv(ftx4r, nwx, mpi_real, irylz, 203,   &
+    &              mpi_comm_world, ireql(7), ier)
+    call mpi_isend(ftx4s, nwx, mpi_real, ilyrz, 203,   &
+    &              mpi_comm_world, ireql(8), ier)
+!
+! Y-line
+    call mpi_irecv(fty1r, nwy, mpi_real, ilxrz, 204,   &
+    &              mpi_comm_world, ireql(9), ier)
+    call mpi_isend(fty1s, nwy, mpi_real, irxlz, 204,   &
+    &              mpi_comm_world, ireql(10), ier)
+!
+    call mpi_irecv(fty2r, nwy, mpi_real, ilxlz, 205,   &
+    &              mpi_comm_world, ireql(11), ier)
+    call mpi_isend(fty2s, nwy, mpi_real, irxrz, 205,   &
+    &              mpi_comm_world, ireql(12), ier)
+!
+    call mpi_irecv(fty3r, nwy, mpi_real, irxrz, 206,   &
+    &              mpi_comm_world, ireql(13), ier)
+    call mpi_isend(fty3s, nwy, mpi_real, ilxlz, 206,   &
+    &              mpi_comm_world, ireql(14), ier)
+!
+    call mpi_irecv(fty4r, nwy, mpi_real, irxlz, 207,   &
+    &              mpi_comm_world, ireql(15), ier)
+    call mpi_isend(fty4s, nwy, mpi_real, ilxrz, 207,   &
+    &              mpi_comm_world, ireql(16), ier)
+!
+! Z-line
+    call mpi_irecv(ftz1r, nwz, mpi_real, ilxry, 208,   &
+    &              mpi_comm_world, ireql(17), ier)
+    call mpi_isend(ftz1s, nwz, mpi_real, irxly, 208,   &
+    &              mpi_comm_world, ireql(18), ier)
+!
+    call mpi_irecv(ftz2r, nwz, mpi_real, ilxly, 209,   &
+    &              mpi_comm_world, ireql(19), ier)
+    call mpi_isend(ftz2s, nwz, mpi_real, irxry, 209,   &
+    &              mpi_comm_world, ireql(20), ier)
+!
+    call mpi_irecv(ftz3r, nwz, mpi_real, irxry, 210,   &
+    &              mpi_comm_world, ireql(21), ier)
+    call mpi_isend(ftz3s, nwz, mpi_real, ilxly, 210,   &
+    &              mpi_comm_world, ireql(22), ier)
+!
+    call mpi_irecv(ftz4r, nwz, mpi_real, irxly, 211,   &
+    &              mpi_comm_world, ireql(23), ier)
+    call mpi_isend(ftz4s, nwz, mpi_real, ilxry, 211,   &
+    &              mpi_comm_world, ireql(24), ier)
+!
+    call mpi_waitall(24, ireql, istatl, ier)
+!
+    f(xs:xe,ys-1 ,ze+1 ) = ftx1r(:)
+    f(xs:xe,ys-1 ,zs-1 ) = ftx2r(:)
+    f(xs:xe,ye+1 ,ze+1 ) = ftx3r(:)
+    f(xs:xe,ye+1 ,zs-1 ) = ftx4r(:)
+    f(xs-1 ,ys:ye,ze+1 ) = fty1r(:)
+    f(xs-1 ,ys:ye,zs-1 ) = fty2r(:)
+    f(xe+1 ,ys:ye,ze+1 ) = fty3r(:)
+    f(xe+1 ,ys:ye,zs-1 ) = fty4r(:)
+    f(xs-1 ,ye+1 ,zs:ze) = ftz1r(:)
+    f(xs-1 ,ys-1 ,zs:ze) = ftz2r(:)
+    f(xe+1 ,ye+1 ,zs:ze) = ftz3r(:)
+    f(xe+1 ,ys-1 ,zs:ze) = ftz4r(:)
+!
+    call clock(zt(6))
+!
+!--- Spot communication ---!
+! X-line
+! "send" e --> right, s --> left"
+    ftxyz1s(1) = f(xs, ys, zs)
+    ftxyz2s(1) = f(xs, ys, ze)
+    ftxyz3s(1) = f(xs, ye, ze)
+    ftxyz4s(1) = f(xs, ye, zs)
+    ftxyz5s(1) = f(xe, ys, zs)
+    ftxyz6s(1) = f(xe, ys, ze)
+    ftxyz7s(1) = f(xe, ye, zs)
+    ftxyz8s(1) = f(xe, ye, ze)
+!
+    call mpi_irecv(ftxyz1r, 1, mpi_real, irxryrz, 300,   &
+    &              mpi_comm_world, ireqs(1), ier)
+    call mpi_isend(ftxyz1s, 1, mpi_real, ilxlylz, 300,   &
+    &              mpi_comm_world, ireqs(2), ier)
+!
+    call mpi_irecv(ftxyz2r, 1, mpi_real, irxrylz, 301,   &
+    &              mpi_comm_world, ireqs(3), ier)
+    call mpi_isend(ftxyz2s, 1, mpi_real, ilxlyrz, 301,   &
+    &              mpi_comm_world, ireqs(4), ier)
+!
+    call mpi_irecv(ftxyz3r, 1, mpi_real, irxlylz, 302,   &
+    &              mpi_comm_world, ireqs(5), ier)
+    call mpi_isend(ftxyz3s, 1, mpi_real, ilxryrz, 302,   &
+    &              mpi_comm_world, ireqs(6), ier)
+!
+    call mpi_irecv(ftxyz4r, 1, mpi_real, irxlyrz, 303,   &
+    &              mpi_comm_world, ireqs(7), ier)
+    call mpi_isend(ftxyz4s, 1, mpi_real, ilxrylz, 303,   &
+    &              mpi_comm_world, ireqs(8), ier)
+!
+    call mpi_irecv(ftxyz5r, 1, mpi_real, ilxryrz, 304,   &
+    &              mpi_comm_world, ireqs(9), ier)
+    call mpi_isend(ftxyz5s, 1, mpi_real, irxlylz, 304,   &
+    &              mpi_comm_world, ireqs(10), ier)
+!
+    call mpi_irecv(ftxyz6r, 1, mpi_real, ilxryrz, 305,   &
+    &              mpi_comm_world, ireqs(11), ier)
+    call mpi_isend(ftxyz6s, 1, mpi_real, irxlylz, 305,   &
+    &              mpi_comm_world, ireqs(12), ier)
+!
+    call mpi_irecv(ftxyz7r, 1, mpi_real, ilxryrz, 306,   &
+    &              mpi_comm_world, ireqs(13), ier)
+    call mpi_isend(ftxyz7s, 1, mpi_real, irxlylz, 306,   &
+    &              mpi_comm_world, ireqs(14), ier)
+!
+    call mpi_irecv(ftxyz8r, 1, mpi_real, ilxryrz, 307,   &
+    &              mpi_comm_world, ireqs(15), ier)
+    call mpi_isend(ftxyz8s, 1, mpi_real, irxlylz, 307,   &
+    &              mpi_comm_world, ireqs(16), ier)
+!
+    call mpi_waitall(16, ireqs, istats, ier)
+!
+    f(xe+1, ye+1, ze+1) = ftxyz1r(1)
+    f(xe+1, ye+1, zs-1) = ftxyz2r(1)
+    f(xe+1, ys-1, zs-1) = ftxyz3r(1)
+    f(xe+1, ys-1, ze+1) = ftxyz4r(1)
+    f(xs-1, ye+1, ze+1) = ftxyz5r(1)
+    f(xs-1, ye+1, zs-1) = ftxyz6r(1)
+    f(xs-1, ys-1, ze+1) = ftxyz7r(1)
+    f(xs-1, ys-1, zs-1) = ftxyz8r(1)
+!
+    call clock(zt(7))
+!
+    call halo_timeinfo(zt)
+!
+  end subroutine halo3d
+!
+!
+!------------------------------------------------------------------------------&
+! 3. non-blocking halo communication start
+!------------------------------------------------------------------------------&
+  subroutine halo3d_start(nxx, nyy, nzz, f, ireqp, ireql, ireqs)
+!------------------------------------------------------------------------------&
+    include 'mpif.h'
+    integer, intent(in)   :: nxx, nyy, nzz
+    real, intent(inout)   :: f(0:nxx+1, 0:nyy+1, 0:nzz+1)
+    integer, intent(iout) :: ireqp(12), ireql(24), ireqs(16)
+!
+!--- Plane comunication ---!
+    ftyz1s(:,:) = f(xs,   ys:ye,zs:ze)
+    call mpi_irecv(ftyz1r, nwyz, mpi_real, irx, 100,   &
+    &              mpi_comm_world, ireqp(1), ier)
+    call mpi_isend(ftyz1s, nwyz, mpi_real, ilx, 100,   &
+    &              mpi_comm_world, ireqp(2), ier)
+!
+    ftzx1s(:,:) = f(xs:xe,ys,   zs:ze)
+    call mpi_irecv(ftzx1r, nwzx, mpi_real, iry, 101,   &
+    &              mpi_comm_world, ireqp(3), ier)
+    call mpi_isend(ftzx1s, nwzx, mpi_real, ily, 101,   &
+    &              mpi_comm_world, ireqp(4), ier)
+!
+    ftxy1s(:,:) = f(xs:xe,ys:ye,   zs)
+    call mpi_irecv(ftxy1r, nwxy, mpi_real, irz, 102,   &
+    &              mpi_comm_world, ireqp(5), ier)
+    call mpi_isend(ftxy1s, nwxy, mpi_real, ilz, 102,   &
+    &              mpi_comm_world, ireqp(6), ier)
+!
+    ftyz2s(:,:) = f(xe,   ys:ye,zs:ze)
+    call mpi_irecv(ftyz2r, nwyz, mpi_real, ilx, 103,   &
+    &              mpi_comm_world, ireqp(7), ier)
+    call mpi_isend(ftyz2s, nwyz, mpi_real, irx, 103,   &
+    &              mpi_comm_world, ireqp(8), ier)
+!
+    ftzx2s(:,:) = f(xs:xe,ye,   zs:ze)
+    call mpi_irecv(ftzx2r, nwzx, mpi_real, ily, 104,   &
+    &              mpi_comm_world, ireqp(9), ier)
+    call mpi_isend(ftzx2s, nwzx, mpi_real, iry, 104,   &
+    &              mpi_comm_world, ireqp(10), ier)
+!
+    ftxy2s(:,:) = f(xs:xe,ys:ye,   ze)
+    call mpi_irecv(ftxy2r, nwxy, mpi_real, ilz, 105,   &
+    &              mpi_comm_world, ireqp(11), ier)
+    call mpi_isend(ftxy2s, nwxy, mpi_real, irz, 105,   &
+    &              mpi_comm_world, ireqp(12), ier)
+!
+!--- Line cominication ---!
+! "send" e --> right, s --> left"
+    ftx1s(:) = f(xs:xe,ye   ,zs   )
+    ftx2s(:) = f(xs:xe,ye   ,ze   )
+    ftx3s(:) = f(xs:xe,ys   ,zs   )
+    ftx4s(:) = f(xs:xe,ys   ,ze   )
+    fty1s(:) = f(xe   ,ys:ye,zs   )
+    fty2s(:) = f(xe   ,ys:ye,ze   )
+    fty3s(:) = f(xs   ,ys:ye,zs   )
+    fty4s(:) = f(xs   ,ys:ye,ze   )
+    ftz1s(:) = f(xe   ,ys   ,zs:ze)
+    ftz2s(:) = f(xe   ,ye   ,zs:ze)
+    ftz3s(:) = f(xs   ,ys   ,zs:ze)
+    ftz4s(:) = f(xs   ,ye   ,zs:ze)
+!
+! X-line
+    call mpi_irecv(ftx1r, nwx, mpi_real, ilyrz, 200,   &
+    &              mpi_comm_world, ireql(1), ier)
+    call mpi_isend(ftx1s, nwx, mpi_real, irylz, 200,   &
+    &              mpi_comm_world, ireql(2), ier)
+!
+    call mpi_irecv(ftx2r, nwx, mpi_real, ilylz, 201,   &
+    &              mpi_comm_world, ireql(3), ier)
+    call mpi_isend(ftx2s, nwx, mpi_real, iryrz, 201,   &
+    &              mpi_comm_world, ireql(4), ier)
+!
+    call mpi_irecv(ftx3r, nwx, mpi_real, iryrz, 202,   &
+    &              mpi_comm_world, ireql(5), ier)
+    call mpi_isend(ftx3s, nwx, mpi_real, ilylz, 202,   &
+    &              mpi_comm_world, ireql(6), ier)
+!
+    call mpi_irecv(ftx4r, nwx, mpi_real, irylz, 203,   &
+    &              mpi_comm_world, ireql(7), ier)
+    call mpi_isend(ftx4s, nwx, mpi_real, ilyrz, 203,   &
+    &              mpi_comm_world, ireql(8), ier)
+!
+! Y-line
+    call mpi_irecv(fty1r, nwy, mpi_real, ilxrz, 204,   &
+    &              mpi_comm_world, ireql(9), ier)
+    call mpi_isend(fty1s, nwy, mpi_real, irxlz, 204,   &
+    &              mpi_comm_world, ireql(10), ier)
+!
+    call mpi_irecv(fty2r, nwy, mpi_real, ilxlz, 205,   &
+    &              mpi_comm_world, ireql(11), ier)
+    call mpi_isend(fty2s, nwy, mpi_real, irxrz, 205,   &
+    &              mpi_comm_world, ireql(12), ier)
+!
+    call mpi_irecv(fty3r, nwy, mpi_real, irxrz, 206,   &
+    &              mpi_comm_world, ireql(13), ier)
+    call mpi_isend(fty3s, nwy, mpi_real, ilxlz, 206,   &
+    &              mpi_comm_world, ireql(14), ier)
+!
+    call mpi_irecv(fty4r, nwy, mpi_real, irxlz, 207,   &
+    &              mpi_comm_world, ireql(15), ier)
+    call mpi_isend(fty4s, nwy, mpi_real, ilxrz, 207,   &
+    &              mpi_comm_world, ireql(16), ier)
+!
+! Z-line
+    call mpi_irecv(ftz1r, nwz, mpi_real, ilxry, 208,   &
+    &              mpi_comm_world, ireql(17), ier)
+    call mpi_isend(ftz1s, nwz, mpi_real, irxly, 208,   &
+    &              mpi_comm_world, ireql(18), ier)
+!
+    call mpi_irecv(ftz2r, nwz, mpi_real, ilxly, 209,   &
+    &              mpi_comm_world, ireql(19), ier)
+    call mpi_isend(ftz2s, nwz, mpi_real, irxry, 209,   &
+    &              mpi_comm_world, ireql(20), ier)
+!
+    call mpi_irecv(ftz3r, nwz, mpi_real, irxry, 210,   &
+    &              mpi_comm_world, ireql(21), ier)
+    call mpi_isend(ftz3s, nwz, mpi_real, ilxly, 210,   &
+    &              mpi_comm_world, ireql(22), ier)
+!
+    call mpi_irecv(ftz4r, nwz, mpi_real, irxly, 211,   &
+    &              mpi_comm_world, ireql(23), ier)
+    call mpi_isend(ftz4s, nwz, mpi_real, ilxry, 211,   &
+    &              mpi_comm_world, ireql(24), ier)
+!
+!--- Spot communication ---!
+! X-line
+! "send" e --> right, s --> left"
+    ftxyz1s(1) = f(xs, ys, zs)
+    ftxyz2s(1) = f(xs, ys, ze)
+    ftxyz3s(1) = f(xs, ye, ze)
+    ftxyz4s(1) = f(xs, ye, zs)
+    ftxyz5s(1) = f(xe, ys, zs)
+    ftxyz6s(1) = f(xe, ys, ze)
+    ftxyz7s(1) = f(xe, ye, zs)
+    ftxyz8s(1) = f(xe, ye, ze)
+!
+    call mpi_irecv(ftxyz1r, 1, mpi_real, irxryrz, 300,   &
+    &              mpi_comm_world, ireqs(1), ier)
+    call mpi_isend(ftxyz1s, 1, mpi_real, ilxlylz, 300,   &
+    &              mpi_comm_world, ireqs(2), ier)
+!
+    call mpi_irecv(ftxyz2r, 1, mpi_real, irxrylz, 301,   &
+    &              mpi_comm_world, ireqs(3), ier)
+    call mpi_isend(ftxyz2s, 1, mpi_real, ilxlyrz, 301,   &
+    &              mpi_comm_world, ireqs(4), ier)
+!
+    call mpi_irecv(ftxyz3r, 1, mpi_real, irxlylz, 302,   &
+    &              mpi_comm_world, ireqs(5), ier)
+    call mpi_isend(ftxyz3s, 1, mpi_real, ilxryrz, 302,   &
+    &              mpi_comm_world, ireqs(6), ier)
+!
+    call mpi_irecv(ftxyz4r, 1, mpi_real, irxlyrz, 303,   &
+    &              mpi_comm_world, ireqs(7), ier)
+    call mpi_isend(ftxyz4s, 1, mpi_real, ilxrylz, 303,   &
+    &              mpi_comm_world, ireqs(8), ier)
+!
+    call mpi_irecv(ftxyz5r, 1, mpi_real, ilxryrz, 304,   &
+    &              mpi_comm_world, ireqs(9), ier)
+    call mpi_isend(ftxyz5s, 1, mpi_real, irxlylz, 304,   &
+    &              mpi_comm_world, ireqs(10), ier)
+!
+    call mpi_irecv(ftxyz6r, 1, mpi_real, ilxryrz, 305,   &
+    &              mpi_comm_world, ireqs(11), ier)
+    call mpi_isend(ftxyz6s, 1, mpi_real, irxlylz, 305,   &
+    &              mpi_comm_world, ireqs(12), ier)
+!
+    call mpi_irecv(ftxyz7r, 1, mpi_real, ilxryrz, 306,   &
+    &              mpi_comm_world, ireqs(13), ier)
+    call mpi_isend(ftxyz7s, 1, mpi_real, irxlylz, 306,   &
+    &              mpi_comm_world, ireqs(14), ier)
+!
+    call mpi_irecv(ftxyz8r, 1, mpi_real, ilxryrz, 307,   &
+    &              mpi_comm_world, ireqs(15), ier)
+    call mpi_isend(ftxyz8s, 1, mpi_real, irxlylz, 307,   &
+    &              mpi_comm_world, ireqs(16), ier)
+!
+  end subroutine halo3d_start
+!
+!------------------------------------------------------------------------------&
+! 4. non-blocking halo communication end
+!------------------------------------------------------------------------------&
+  subroutine halo3d_end(nxx, nyy, nzz, f, ireqp, ireql, ireqs)
+!------------------------------------------------------------------------------&
+    include 'mpif.h'
+    integer, intent(in)   :: nxx, nyy, nzz
+    real, intent(inout)   :: f(0:nxx+1, 0:nyy+1, 0:nzz+1)
+    integer, intent(in) :: ireqp(12), ireql(24), ireqs(16)
+!
+!
+    integer :: istatp(mpi_status_size, 12)
+    integer :: istatl(mpi_status_size, 24)
+    integer :: istats(mpi_status_size, 16)
+!
+    call mpi_waitall(12, ireqp, istatp, ier)
+!
+    f(xe+1 ,ys:ye,zs:ze) = ftyz1r(:,:)
+    f(xs:xe,ye+1 ,zs:ze) = ftzx1r(:,:)
+    f(xs:xe,ys:ye,ze+1 ) = ftxy1r(:,:)
+    f(xs-1 ,ys:ye,zs:ze) = ftyz2r(:,:)
+    f(xs:xe,ys-1 ,zs:ze) = ftzx2r(:,:)
+    f(xs:xe,ys:ye,zs-1 ) = ftxy2r(:,:)
+!
+    call mpi_waitall(24, ireql, istatl, ier)
+!
+    f(xs:xe,ys-1 ,ze+1 ) = ftx1r(:)
+    f(xs:xe,ys-1 ,zs-1 ) = ftx2r(:)
+    f(xs:xe,ye+1 ,ze+1 ) = ftx3r(:)
+    f(xs:xe,ye+1 ,zs-1 ) = ftx4r(:)
+    f(xs-1 ,ys:ye,ze+1 ) = fty1r(:)
+    f(xs-1 ,ys:ye,zs-1 ) = fty2r(:)
+    f(xe+1 ,ys:ye,ze+1 ) = fty3r(:)
+    f(xe+1 ,ys:ye,zs-1 ) = fty4r(:)
+    f(xs-1 ,ye+1 ,zs:ze) = ftz1r(:)
+    f(xs-1 ,ys-1 ,zs:ze) = ftz2r(:)
+    f(xe+1 ,ye+1 ,zs:ze) = ftz3r(:)
+    f(xe+1 ,ys-1 ,zs:ze) = ftz4r(:)
+!
+    call mpi_waitall(16, ireqs, istats, ier)
+!
+    f(xe+1, ye+1, ze+1) = ftxyz1r(1)
+    f(xe+1, ye+1, zs-1) = ftxyz2r(1)
+    f(xe+1, ys-1, zs-1) = ftxyz3r(1)
+    f(xe+1, ys-1, ze+1) = ftxyz4r(1)
+    f(xs-1, ye+1, ze+1) = ftxyz5r(1)
+    f(xs-1, ye+1, zs-1) = ftxyz6r(1)
+    f(xs-1, ys-1, ze+1) = ftxyz7r(1)
+    f(xs-1, ys-1, zs-1) = ftxyz8r(1)
+!
+  end subroutine halo3d_end
+!
+!
+!------------------------------------------------------------------------------!
+  subroutine clock(ti)
+!------------------------------------------------------------------------------!
+    real(kind=8), intent(out) :: ti
+    real(kind=8) :: mpi_wtime
+!   call cpu_time(ti)
+    ti = mpi_wtime()
+    return
+  end subroutine clock
+!
+!------------------------------------------------------------------------------!
+  subroutine halo_timeinfo(zt)
+!------------------------------------------------------------------------------!
+    include 'mpif.h'
+    real(kind=8), intent(in) :: zt(7)
+    real(kind=8) :: tg(7)
+    call mpi_reduce(zt(1), tg(1), 7, mpi_double_precision, mpi_sum, 0,   &
+    &               mpi_comm_world, ier)
+    if(irank==0) then
+      tg(1:7) = tg(1:7) / isize
+      print *,   '----------------- Time information -------------------'
+      print *,   '    plane1,    plane2,      wait'
+      print '(3f11.5)', tg(2) - tg(1), tg(3) - tg(2), tg(4) - tg(3)
+      print *,   '    unpack,      line,      spot'
+      print '(3f11.5)', tg(5) - tg(4), tg(6) - tg(5), tg(7) - tg(6)
+      print *, ' Sum of halo comm. =', tg(7) - tg(1)
+    end if
+  end subroutine halo_timeinfo
+!
+end module halo

@@ -1,0 +1,154 @@
+#define CMD_INIT      0
+#define CMD_FINALIZE  1
+#define CMD_COPY      2
+#define CMD_FENCE     3
+#define CMD_CAS4      4
+#define CMD_CAS8      5
+#define CMD_SWAP4     6
+#define CMD_SWAP8     7
+#define CMD_ADD4      8
+#define CMD_ADD8      9
+#define CMD_XOR4     10
+#define CMD_XOR8     11
+#define CMD_OR4      12
+#define CMD_OR8      13
+#define CMD_AND4     14
+#define CMD_AND8     15
+
+struct cqe_type1 {
+  uint8_t   command;
+};
+
+struct cqe_type2 {
+  uint8_t   command;
+  ace_tag_t dst_tag;
+  uint64_t  dst_offset;
+  ace_tag_t src_tag;
+  uint64_t  src_offset;
+};
+
+struct cqe_type3 {
+  uint8_t   command;
+  uint32_t* dst;
+  ace_tag_t tag;
+  uint64_t  offset;
+  uint32_t  compare;
+  uint32_t  swap;
+};
+
+struct cqe_type4 {
+  uint8_t   command;
+  uint64_t* dst;
+  ace_tag_t tag;
+  uint64_t  offset;
+  uint64_t  compare;
+  uint64_t  swap;
+};
+
+struct cqe_type5 {
+  uint8_t   command;
+  uint32_t* dst;
+  ace_tag_t tag;
+  uint64_t  offset;
+  uint32_t  data;
+};
+
+struct cqe_type6 {
+  uint8_t   command;
+  uint64_t* dst;
+  ace_tag_t tag;
+  uint64_t  offset;
+  uint64_t  data;
+};
+
+typedef union {
+    struct cqe_type1 init;
+    struct cqe_type1 finalize;
+    struct cqe_type2 copy;
+    struct cqe_type1 fence;
+    struct cqe_type3 cas4;
+    struct cqe_type4 cas8;
+    struct cqe_type5 swap4;
+    struct cqe_type6 swap8;
+    struct cqe_type5 add4;
+    struct cqe_type6 add8;
+    struct cqe_type5 xor4;
+    struct cqe_type6 xor8;
+    struct cqe_type5 or4;
+    struct cqe_type6 or8;
+    struct cqe_type5 and4;
+    struct cqe_type6 and8;
+} cqe_t ;
+
+#define CQ_BITWIDTH 12 /* 4,096 entries */
+static volatile cqe_t cq[1 << CQ_BITWIDTH];
+static volatile uint64_t cqwp, cqcp;
+static uint64_t cqrp;
+volatile uint64_t cqlk;
+
+static void cq_init( void )
+{
+  cqwp = 0, cqrp = 0, cqcp = 0;
+  sync_synchronize();
+  cqlk = 0;
+  return;
+}
+
+static inline int cq_lock( void )
+{
+  while ( !sync_val_compare_and_swap_8( &cqlk, 0, 1 ) ) ;
+  uint64_t wp = cqwp;
+  while ( cqcp + (1 << CQ_BITWIDTH) <= wp ) ;
+  return (int)( wp & ((1 << CQ_BITWIDTH) - 1) );
+}
+
+static inline uint64_t cq_unlock( void )
+{
+  uint64_t wp = cqwp++;
+  sync_synchronize();
+  cqlk = 0;
+  return wp;
+}
+
+static inline void cq_block( uint64_t index )
+{
+  while ( cqcp < index ) ;
+  return;
+}
+
+static inline int cq_test( void )
+{
+  return cqrp < cqwp;
+}
+
+static inline volatile cqe_t* cq_read( void )
+{
+  return cq + (cqrp & ((1 << CQ_BITWIDTH) - 1));
+}
+
+static inline void cq_next( void )
+{
+  if ( cqrp < cqwp ) cqrp++;
+  return;
+}
+
+static inline void cq_dequeue( void )
+{
+  if ( cqcp < cqwp ) cqcp++;
+  return;
+}
+
+static inline uint64_t enqueue_init( void )
+{
+  int p = cq_lock();
+  cq[p].init.command = CMD_INIT;
+  return cq_unlock();
+}
+
+static inline uint64_t enqueue_finalize( void )
+{
+  int p = cq_lock();
+  cq[p].finalize.command = CMD_FINALIZE;
+  return cq_unlock();
+}
+

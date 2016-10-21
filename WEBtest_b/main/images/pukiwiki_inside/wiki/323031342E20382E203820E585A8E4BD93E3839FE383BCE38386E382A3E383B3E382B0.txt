@@ -1,0 +1,12 @@
+[[平成26年度]]
+
+-&ref(平成26年度　ミーティング資料/nanri-20140808-midtermreport.pptx);　~
+-&ref(平成26年度　ミーティング資料/ace-20140808-tkoba(1).pdf);　~
+-&ref(平成26年度　ミーティング資料/ace20140808morie.pptx);　~
+-&ref(平成26年度　ミーティング資料/20140808_ACP_coding-rule-shidax.pptx);　~
+-&ref(平成26年度　ミーティング資料/ACEmeeting_ajima_20140808.pptx);　~
+-&ref(平成26年度　ミーティング資料/crest-20140808-nose-directory.pptx);　~
+-&ref(平成26年度　ミーティング資料/crest-20140808-nose-ruby.pptx);　~
+-&ref(平成26年度　ミーティング資料/PGAS2014_17.pdf);　~
+-&ref(平成26年度　ミーティング資料/ドキュメントの権利についての追加協議.pptx);　~
+-&ref(平成26年度　ミーティング資料/acp-master_20140807.zip);　~
