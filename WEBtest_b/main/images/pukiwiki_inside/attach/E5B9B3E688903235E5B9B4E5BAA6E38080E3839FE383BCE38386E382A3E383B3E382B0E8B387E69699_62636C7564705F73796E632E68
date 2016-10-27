@@ -1,0 +1,48 @@
+#ifdef FCC_SPARC64
+
+/* TBD */
+
+static inline uint64_t sync_val_compare_and_swap(uint64_t* volatile ptr, uint64_t oldval, uint64_t newval)
+{
+  volatile uint64_t tmpr;
+  __asm__ __volatile__("membar #StoreLoad | #LoadLoad");
+  __asm__ __volatile__("casx [%1], %2, %3\n\tstx %3, [%0]\n\t" : : "r"(&tmpr), "r"(ptr), "r"(oldval), "r"(newval) : "memory");
+  __asm__ __volatile__("membar #StoreStore | #StoreLoad");
+  return tmpr;
+}
+
+#else /* gcc 4.2 -march=i486 or later */
+
+#define sync_val_compare_and_swap_4(ptr, oldval, newval) __sync_val_compare_and_swap(ptr, oldval, newval)
+#define sync_val_compare_and_swap_8(ptr, oldval, newval) __sync_val_compare_and_swap(ptr, oldval, newval)
+#define sync_fetch_and_add_4(ptr, value)                 __sync_fetch_and_add(ptr, value)
+#define sync_fetch_and_add_8(ptr, value)                 __sync_fetch_and_add(ptr, value)
+#define sync_fetch_and_or_4(ptr, value)                  __sync_fetch_and_or(ptr, value)
+#define sync_fetch_and_or_8(ptr, value)                  __sync_fetch_and_or(ptr, value)
+#define sync_fetch_and_and_4(ptr, value)                 __sync_fetch_and_and(ptr, value)
+#define sync_fetch_and_and_8(ptr, value)                 __sync_fetch_and_and(ptr, value)
+#define sync_fetch_and_xor_4(ptr, value)                 __sync_fetch_and_xor(ptr, value)
+#define sync_fetch_and_xor_8(ptr, value)                 __sync_fetch_and_xor(ptr, value)
+#define sync_synchronize()                               __sync_synchronize()
+
+static inline uint32_t sync_swap_4(uint32_t* volatile ptr, uint32_t value)
+{
+  uint32_t oldval, newval;
+  do {
+    oldval = *ptr;
+    newval = __sync_val_compare_and_swap(ptr, oldval, value);
+  } while( oldval != newval );
+  return oldval;
+}
+
+static inline uint64_t sync_swap_8(uint64_t* volatile ptr, uint64_t value)
+{
+  uint64_t oldval, newval;
+  do {
+    oldval = *ptr;
+    newval = __sync_val_compare_and_swap(ptr, oldval, value);
+  } while( oldval != newval );
+  return oldval;
+}
+#endif
+

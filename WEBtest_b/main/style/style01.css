@@ -1,0 +1,128 @@
+@charset "utf-8";
+/* CSS Document */
+
+body {
+	font: 100%/1.4 "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS P Gothic", sans-serif;
+	 color: #FFF;
+	background-attachment: fixed;
+	background-image: none;
+	background-repeat: no-repeat;
+	background-position: center top;
+	padding-top: 10px;
+	padding-right: 0;
+	padding-bottom: 0px;
+	padding-left: 0;
+	margin-top: 3px;
+	margin-right: 0px;
+	margin-left: 0px;
+	top: 10px;
+	clip: rect(3px,auto,3px,auto);
+}
+.subtitle {
+	font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;
+	font-size: 16px;
+	font-weight: bold;
+	color: #000;
+}
+
+/* ~~ エレメント / タグセレクター ~~ */
+ul, ol, dl { /* ブラウザー間の相違により、リストの余白とマージンをゼロにすることをお勧めします。一貫性を保つために、量をここで指定するか、リストに含まれるリスト項目 (LI、DT、DD) で指定できます。より詳細なセレクターを記述しない限り、ここで指定する内容が .nav リストにも適用されることに注意してください。 */
+	padding: 0;
+	margin: 0;
+}
+h1, h2, h3, h4, h5, h6, p {
+	margin-top: 0;	 /* 上マージンを削除すると、マージンを含む div からマージンがはみ出す場合があるという問題を回避できます。残った下マージンにより、後続のエレメントからは離されます。 */
+	padding-right: 15px;
+	padding-left: 15px;
+}
+a img { /* このセレクターは、一部のブラウザーでイメージをリンクで囲んだ場合にイメージの周囲に表示される初期設定の青いボーダーを削除します。 */
+	border: none;
+}
+/* ~~ サイトのリンクのスタイル付けは、ホバー効果を作成するセレクターグループも含め、この順序にする必要があります。~~ */
+a:link {
+	color: #000066; /* 非常に特殊な表示方法でリンクをスタイル付けする場合を除き、一目で見分けられるように下線を指定することをお勧めします。 */
+	text-decoration: none;
+}
+a:visited {
+	color: #330066;
+	text-decoration: none;
+}
+a:hover, a:active, a:focus { /* このセレクターグループは、キーボードを使用するユーザーに対し、マウスを使用するユーザーと同じホバー効果を提供します。 */
+	text-decoration: none;
+	color: #06C;
+}
+
+/* ~~ この固定幅コンテナが他の div を囲みます。~~ */
+.container {
+	-webkit-box-shadow: 1px 1px 8px #535102;
+	-moz-box-shadow: 1px 1px 7px #999966;
+	box-shadow: 1px 1px 9px #999966;
+    
+	width: 96%;/*768/960 */
+	min-width:930px;
+    max-width: 900px;
+	background: #FFF;
+	margin: 0 auto; /* 幅に加え、両側を自動値とすることで、レイアウトが中央に揃います。 */
+}
+
+/* ~~ ヘッダーには幅は指定されません。ヘッダーはレイアウトの幅全体まで広がります。ヘッダーには、ユーザー独自のリンクされたロゴに置き換えられるイメージプレースホルダーが含まれます。~~ */
+
+/* ~~ これはレイアウト情報です。~~ 
+
+/
+
+.content {
+
+	padding: 10px 0;
+}
+
+/* ~~ フッター ~~ */
+.footer {
+	padding:10px 0;
+	background-color: #FFECD9;
+	margin: 0px;
+	background-position: center;
+	font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;
+	font-size: x-small;
+	color: #333;
+	text-align: center;
+}
+
+/* ~~ その他の float/clear クラス ~~ */
+.fltrt {  /* このクラスを使用すると、ページ内でエレメントを右にフローティングさせることができます。フローティングさせるエレメントは、ページ内で横に並べて表示するエレメントの前に指定する必要があります。 */
+	float: right;
+	margin-left: 8px;
+}
+.fltlft { /* このクラスを使用すると、ページ内でエレメントを左にフローティングさせることができます。フローティングさせるエレメントは、ページ内で横に並べて表示するエレメントの前に指定する必要があります。 */
+	float: left;
+	margin-right: 8px;
+}
+.clearfloat { /* このクラスは、#footer が #container から削除されているか取り出されている場合に、<br /> または空の div で、フローティングさせる最後の div に続く最後のエレメントとして (#container 内に) 配置できます。 */
+	clear:both;
+	height:0;
+	font-size: 1px;
+	line-height: 0px;
+}
+
+body,td,th {
+	color: #000;
+}
+a:hover {
+	text-decoration: none;
+}
+a:hover {
+	color: #06F;
+	text-decoration: none;
+}
+.hover {
+	color: #06F;
+}
+a:active {
+	text-decoration: none;
+	color: #06C
+}
+.text1 {
+	font-size: 14px;
+	color: #000;
+	font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;
+}

@@ -1,0 +1,551 @@
+diff -rud pukiwiki-1.4.7.orig/en.lng.php pukiwiki-1.4.7/en.lng.php
+--- pukiwiki-1.4.7.orig/en.lng.php	2006-04-11 02:36:56.000000000 +0900
++++ pukiwiki-1.4.7/en.lng.php	2006-06-28 23:49:13.610272432 +0900
+@@ -179,9 +179,12 @@
+ 	'err_rename'   => 'Cannot rename this file',
+ 	'err_password' => 'Wrong password.',
+ 	'err_adminpass'=> 'Wrong administrator password',
++	'err_makethumb'=> 'Unable to make thumbnail',
++	'err_extract'  => 'Unable to extract files from uploaded archive',
+ 	'btn_upload'   => 'Upload',
+ 	'btn_info'     => 'Information',
+-	'btn_submit'   => 'Submit'
++	'btn_submit'   => 'Submit',
++	'msg_extract'  => 'Extract & Attach files'
+ );
+ 
+ ///////////////////////////////////////
+diff -rud pukiwiki-1.4.7.orig/ja.lng.php pukiwiki-1.4.7/ja.lng.php
+--- pukiwiki-1.4.7.orig/ja.lng.php	2006-04-11 02:36:56.000000000 +0900
++++ pukiwiki-1.4.7/ja.lng.php	2006-06-28 23:49:13.607272888 +0900
+@@ -181,9 +181,12 @@
+ 	'err_rename'   => 'ファイル名を変更できませんでした',
+ 	'err_password' => 'パスワードが一致しません。',
+ 	'err_adminpass'=> '管理者パスワードが一致しません。',
++	'err_makethumb'=> 'サムネイルを作成できませんでした',
++	'err_extract'  => 'アーカイブを展開できませんでした',
+ 	'btn_upload'   => 'アップロード',
+ 	'btn_info'     => '詳細',
+-	'btn_submit'   => '実行'
++	'btn_submit'   => '実行',
++	'msg_extract'  => 'アーカイブを展開して添付'
+ );
+ 
+ ///////////////////////////////////////
+diff -rud pukiwiki-1.4.7.orig/plugin/attach.inc.php pukiwiki-1.4.7/plugin/attach.inc.php
+--- pukiwiki-1.4.7.orig/plugin/attach.inc.php	2006-04-15 08:51:12.000000000 +0900
++++ pukiwiki-1.4.7/plugin/attach.inc.php	2006-06-28 23:52:18.078229040 +0900
+@@ -6,6 +6,9 @@
+ //   2002-2003 PANDA <panda@arino.jp> http://home.arino.jp/
+ //   2002      Y.MASUI <masui@hisec.co.jp> http://masui.net/pukiwiki/
+ //   2001-2002 Originally written by yu-ji
++// Patch
++//   2005      diabah
++//   2004      ARAI
+ // License: GPL v2 or (at your option) any later version
+ //
+ // File attach plugin
+@@ -39,6 +42,15 @@
+ define('PLUGIN_ATTACH_FILE_MODE', 0644);
+ //define('PLUGIN_ATTACH_FILE_MODE', 0604); // for XREA.COM
+ 
++// サムネイルのクオリティ (JPEG圧縮時に使用)
++define('PLUGIN_THUMB_QUAL', 50); // 0〜100
++
++// サムネイルの変換方法 (TRUE:全て滑らかなJPEGに変換, FALSE:JPEGは滑らかなJPEGにその他はPNGに変換)
++define('PLUGIN_THUMB_RESAMPLE_ALL', TRUE); // TRUE or FALSE
++
++// ファイルオープンの場合、直リンを弾く (TRUEにすると「対象をファイルに保存」も出来なくなる)
++define('PLUGIN_OPEN_AVOID_DIRECT', FALSE); // TRUE or FALSE
++
+ // File icon image
+ define('PLUGIN_ATTACH_FILE_ICON', '<img src="' . IMAGE_DIR .  'file.png"' .
+ 	' width="20" height="20" alt="file"' .
+@@ -47,6 +59,16 @@
+ // mime-typeを記述したページ
+ define('PLUGIN_ATTACH_CONFIG_PAGE_MIME', 'plugin/attach/mime-type');
+ 
++// tar
++define('PLUGIN_TAR_HDR_LEN', 512);		// ヘッダの大きさ
++define('PLUGIN_TAR_BLK_LEN', 512);		// 単位ブロック長さ
++define('PLUGIN_TAR_HDR_NAME_OFFSET', 0);	// ファイル名のオフセット
++define('PLUGIN_TAR_HDR_NAME_LEN', 100);		// ファイル名の最大長さ
++define('PLUGIN_TAR_HDR_SIZE_OFFSET', 124);	// サイズへのオフセット
++define('PLUGIN_TAR_HDR_SIZE_LEN', 12);		// サイズの長さ
++define('PLUGIN_TAR_HDR_TYPE_OFFSET', 156);	// ファイルタイプへのオフセット
++define('PLUGIN_TAR_HDR_TYPE_LEN', 1);		// ファイルタイプの長さ
++
+ //-------- convert
+ function plugin_attach_convert()
+ {
+@@ -85,6 +107,10 @@
+ 		$vars['file'] = $vars['openfile'];
+ 		$vars['pcmd'] = 'open';
+ 	}
++	if (isset($vars['thumb'])) {
++		$vars['file'] = $vars['thumb'];
++		$vars['pcmd'] = 'thumb';
++	}
+ 	if (isset($vars['delfile'])) {
+ 		$vars['file'] = $vars['delfile'];
+ 		$vars['pcmd'] = 'delete';
+@@ -96,7 +122,7 @@
+ 	$page  = isset($vars['page'])  ? $vars['page']  : '';
+ 
+ 	if ($refer != '' && is_pagename($refer)) {
+-		if(in_array($pcmd, array('info', 'open', 'list'))) {
++		if(in_array($pcmd, array('info', 'open', 'list', 'thumb'))) {
+ 			check_readable($refer);
+ 		} else {
+ 			check_editable($refer);
+@@ -118,6 +144,7 @@
+ 		case 'info'     : return attach_info();
+ 		case 'delete'   : return attach_delete();
+ 		case 'open'     : return attach_open();
++		case 'thumb'    : return attach_thumb();
+ 		case 'list'     : return attach_list();
+ 		case 'freeze'   : return attach_freeze(TRUE);
+ 		case 'unfreeze' : return attach_freeze(FALSE);
+@@ -155,7 +182,7 @@
+ // $pass = TRUE : アップロード許可
+ function attach_upload($file, $page, $pass = NULL)
+ {
+-	global $_attach_messages, $notify, $notify_subject;
++	global $vars, $_attach_messages, $notify, $notify_subject;
+ 
+ 	if (PKWK_READONLY) die_message('PKWK_READONLY prohibits editing');
+ 
+@@ -186,13 +213,61 @@
+ 			'msg'=>$_attach_messages['err_adminpass']);
+ 	}
+ 
+-	$obj = & new AttachFile($page, $file['name']);
++	// Uploadされたアーカイブを展開添付する
++	if ($vars['extract_mode'] == 'on') {
++		switch (strtolower(substr($file['name'], -4))) {
++			case '.tar':
++				$efiles = untar($file['tmp_name']);
++				break;
++			case '.zip':
++				$efiles = unzip($file['tmp_name']);
++				break;
++			default:
++				die_message('invalid file type');
++		}
++		if ($efiles === FALSE) {
++			return array(
++				'result'=>FALSE,
++				'msg'=>$_attach_messages['err_extract']);
++		}
++
++		// 展開されたファイルを全てアップロードファイルとして追加
++		foreach ($efiles as $efile) {
++			$ret = do_upload($page,
++				mb_convert_encoding($efile['extname'], SOURCE_ENCODING, 'auto'),
++				$efile['tmpname']);
++			if (! $ret['result']) {
++				unlink($efile['tmpname']);
++			}
++		}
++
++		return $ret;
++	} else {
++		// 通常の単一ファイル添付処理
++		return do_upload($page, $file['name'], $file['tmp_name']);
++	}
++}
++
++// attach_uploadから呼ばれるファイルアップロード関数
++function do_upload($page, $fname, $tmpname)
++{
++	global $_attach_messages;
++
++	$obj = & new AttachFile($page, $fname);
++	
+ 	if ($obj->exist)
+ 		return array('result'=>FALSE,
+ 			'msg'=>$_attach_messages['err_exists']);
+ 
+-	if (move_uploaded_file($file['tmp_name'], $obj->filename))
+-		chmod($obj->filename, PLUGIN_ATTACH_FILE_MODE);
++	if (is_uploaded_file($tmpname)) {
++		if (move_uploaded_file($tmpname, $obj->filename)) {
++			chmod($obj->filename, PLUGIN_ATTACH_FILE_MODE);
++		}
++	} else {
++		if (rename($tmpname, $obj->filename)) {
++			chmod($obj->filename, PLUGIN_ATTACH_FILE_MODE);
++		}
++	}
+ 
+ 	if (is_page($page))
+ 		touch(get_filename($page));
+@@ -308,12 +383,32 @@
+ 		${$var} = isset($vars[$var]) ? $vars[$var] : '';
+ 	}
+ 
++	if (PLUGIN_OPEN_AVOID_DIRECT && ! strstr($_SERVER['HTTP_REFERER'], $_SERVER['HTTP_HOST'])) {
++		header('Location: ' . get_script_uri());
++		exit;
++	}
++
+ 	$obj = & new AttachFile($refer, $file, $age);
+ 	return $obj->getstatus() ?
+ 		$obj->open() :
+ 		array('msg'=>$_attach_messages['err_notfound']);
+ }
+ 
++// サムネイル
++function attach_thumb()
++{
++	global $vars, $_attach_messages;
++	
++	foreach (array('refer', 'file', 'age', 'width', 'height') as $var) {
++		${$var} = isset($vars[$var]) ? $vars[$var] : '';
++	}
++
++	$obj = & new AttachFile($refer, $file, $age);
++	return $obj->getstatus() ?
++		$obj->thumb($refer, $file, $width, $height) :
++		array('msg'=>$_attach_messages['err_notfound']);
++}
++
+ // 一覧取得
+ function attach_list()
+ {
+@@ -408,6 +503,7 @@
+ 		$title = $_attach_messages[PLUGIN_ATTACH_UPLOAD_ADMIN_ONLY ? 'msg_adminpass' : 'msg_password'];
+ 		$pass = '<br />' . $title . ': <input type="password" name="pass" size="8" />';
+ 	}
++	$arc_support = (extension_loaded('zip') ? '*.zip,' : '') . '*.tar';
+ 	return <<<EOD
+ <form enctype="multipart/form-data" action="$script" method="post">
+  <div>
+@@ -420,6 +516,7 @@
+    $msg_maxsize
+   </span><br />
+   <label for="_p_attach_file">{$_attach_messages['msg_file']}:</label> <input type="file" name="attach_file" id="_p_attach_file" />
++  <br />{$_attach_messages['msg_extract']}:<input type="checkbox" name="extract_mode"> ({$arc_support})
+   $pass
+   <input type="submit" value="{$_attach_messages['btn_upload']}" />
+  </div>
+@@ -724,6 +821,48 @@
+ 		@readfile($this->filename);
+ 		exit;
+ 	}
++
++	function thumb($page, $file, $width, $height)
++	{
++		global $_attach_messages;
++
++		// 目標サイズ決定
++		$size = @getimagesize($this->filename);
++		if (is_array($size)) {
++			$this->width  = $size[0];
++			$this->height = $size[1];
++		} else {
++			return array('result'=>FALSE,
++        			'msg'=>$_attach_messages['err_makethumb']);
++		}
++		$dstw = $dsth = 0;
++		if (is_numeric($width) && is_numeric($height)) {
++			$dstw = $width;
++			$dsth = $height;
++		} else {
++			$ratiow = $width  ? $this->width  / $width  : 0;
++			$ratioh = $height ? $this->height / $height : 0;
++			$ratio = max($ratiow, $ratioh);
++			$dstw = (int)($this->width  / $ratio);
++			$dsth = (int)($this->height / $ratio);
++		}
++
++		if (($dstw == 0) || ($dsth == 0)) {
++			$this->open();
++		}
++
++		$obj  = & new ThumbFile($page, $file, $dstw, $dsth);
++		if ($obj->exist && ($obj->time > $this->time)) {
++			$obj->open();
++		} else {
++			$this->getstatus();
++			if (! $obj->make($this->filename, $this->type, $this->width, $this->height)) {
++				return array('result'=>FALSE,
++        				'msg'=>$_attach_messages['err_makethumb']);
++			}
++			$obj->open();
++		}
++	}
+ }
+ 
+ // ファイルコンテナ
+@@ -849,4 +988,203 @@
+ 		return "\n" . '<ul>' . "\n" . $ret . '</ul>' . "\n";
+ 	}
+ }
++
++// サムネイルファイル
++class ThumbFile
++{
++	var $page, $file;
++	var $time = 0;
++
++	function ThumbFile($page, $file, $dstw, $dsth)
++	{
++		$this->page = $page;
++		$this->file = $file;
++
++		$this->width    = $dstw;
++		$this->height   = $dsth;
++		$this->filename = CACHE_DIR . encode($this->page) . '_' . $dstw . 'x' . $dsth . '_' . $file . '.thumb';
++		$this->exist    = file_exists($this->filename);
++		$this->time     = $this->exist ? filemtime($this->filename) - LOCALZONE : 0;
++	}
++
++	// ファイル情報取得
++	function getstatus()
++	{
++		if (! $this->exist) return FALSE;
++
++		$this->size     = filesize($this->filename);
++		$this->type     = attach_mime_content_type($this->filename);
++
++		return TRUE;
++	}
++
++	// サムネイルを作成
++	function make($file, $type, $srcw, $srch)
++	{
++		switch ($type) {
++			case 'image/gif':
++				$src = imagecreatefromgif($file);
++				break;
++			case 'image/jpeg':
++				$src = imagecreatefromjpeg($file);
++				break;
++			case 'image/png':
++				$src = imagecreatefrompng($file);
++				break;
++			default:
++				return FALSE;
++		}
++		if (! $src) {
++			return FALSE;
++		}
++
++		$dst = imagecreatetruecolor($this->width, $this->height);
++		@touch($this->filename); // PHP Bug #35060 回避 ( http://bugs.php.net/bug.php?id=35060 )
++		if (PLUGIN_THUMB_RESAMPLE_ALL || $type == 'image/jpeg') {
++			imagecopyresampled($dst, $src, 0, 0, 0, 0, $this->width, $this->height, $srcw, $srch);
++			imageinterlace($dst, 1);
++			$ret = imagejpeg($dst, $this->filename, PLUGIN_THUMB_QUAL);
++		} else {
++			$alpha = imagecolorallocate($dst, 255, 255, 255);
++			imagefill($dst, 0, 0, $alpha);
++			imagecolortransparent($dst, $alpha);
++			imagecolordeallocate($dst, $alpha);
++			imagesavealpha($dst, TRUE);
++			imagecopyresized($dst, $src, 0, 0, 0, 0, $this->width, $this->height, $srcw, $srch);
++			imageinterlace($dst, 1);
++			$ret = imagepng($dst, $this->filename);
++		}
++		imagedestroy($src);
++		imagedestroy($dst);
++		if (! $ret) {
++			return FALSE;
++		}
++
++		$this->exist = TRUE;
++
++		return TRUE;
++	}
++
++	function open()
++	{
++		$this->getstatus();
++
++		pkwk_common_headers();
++		header('Content-Disposition: inline; filename="' . $this->filename . '"');
++		header('Content-Length: ' . $this->size);
++		header('Content-Type: '. $this->type);
++
++		@readfile($this->filename);
++		exit;
++	}
++
++}
++
++// tarアーカイブを展開
++function untar($upfile)
++{
++	$tmpupfile = tempnam(CACHE_DIR, 'tar_uploaded_');
++	if (! move_uploaded_file($upfile, $tmpupfile)) {
++		return FALSE;
++	}
++	if (! ($fp = fopen($tmpupfile, 'rb'))) {
++		return FALSE;
++	}
++
++	unset($files);
++	$cnt = 0;
++	while (strlen($buff = fread($fp, PLUGIN_TAR_HDR_LEN)) == PLUGIN_TAR_HDR_LEN) {
++		$name = '';
++		for ($i = 0; $i < PLUGIN_TAR_HDR_NAME_LEN; $i++) {
++			if ($buff[$i + PLUGIN_TAR_HDR_NAME_OFFSET] != "\0") {
++				$name .= $buff[$i + PLUGIN_TAR_HDR_NAME_OFFSET];
++			} else {
++				break;
++			}
++		}
++		$name = basename(trim($name)); //ディレクトリお構い無し
++
++		$size = '';
++		for ($i = 0; $i < PLUGIN_TAR_HDR_SIZE_LEN; $i++) {
++			$size .= $buff[$i + PLUGIN_TAR_HDR_SIZE_OFFSET];
++		}
++		list($size) = sscanf('0' . trim($size), '%i'); // サイズは8進数
++
++		// データブロックは512byteでパディングされている
++		$pdsz = ((int)(($size + (PLUGIN_TAR_BLK_LEN - 1)) / PLUGIN_TAR_BLK_LEN)) * PLUGIN_TAR_BLK_LEN;
++
++		// 通常のファイルしか相手にしない
++		$type = $buff[PLUGIN_TAR_HDR_TYPE_OFFSET];
++
++		if ($name && $type == 0) {
++			$buff  = fread($fp, $pdsz);
++			$tname = tempnam(CACHE_DIR, 'tar_extracted_');
++			if (! ($fpw   = fopen($tname , 'wb'))) {
++				fclose($fp);
++				@unlink($tmpupfile);
++				foreach ($files as $file) {
++					@unlink($file['tmpname']);
++				}
++				return FALSE;
++			}
++			fwrite($fpw, $buff, $size);
++			fclose($fpw);
++			$files[$cnt]['tmpname'] = $tname;
++			$files[$cnt]['extname'] = $name;
++			$cnt++;
++		}
++	}
++	fclose($fp);
++	@unlink($tmpupfile);
++
++	return $files;
++}
++
++// zipアーカイブを展開
++function unzip($upfile)
++{
++	if (! extension_loaded('zip')) {
++		return FALSE;
++	}
++	$tmpupfile = tempnam(CACHE_DIR, 'zip_uploaded_');
++	if (! move_uploaded_file($upfile, $tmpupfile)) {
++		return FALSE;
++	}
++	if (! ($fp = zip_open($tmpupfile))) {
++		return FALSE;
++	}
++
++	unset($files);
++	$cnt = 0;
++	while ($entry = zip_read($fp)) {
++		if (zip_entry_open($fp, $entry, "rb")) {
++			$name = basename(trim(zip_entry_name($entry)));
++			$size = zip_entry_filesize($entry);	
++			if ($name && $size !== 0) {
++				$buff = zip_entry_read($entry, $size);
++				$tname = tempnam(CACHE_DIR, 'zip_extracted_');
++				if (! ($fpw  = fopen($tname , 'wb'))) {
++					zip_entry_close($entry);
++					zip_close($fp);
++					foreach ($files as $file) {
++						@unlink($file['tmpname']);
++					}
++					@unlink($tname);
++					@unlink($tmpupfile);
++					return FALSE;
++				}
++				fwrite($fpw, $buff, $size);
++				fclose($fpw);
++				zip_entry_close($entry);
++				$files[$cnt]['tmpname'] = $tname;
++				$files[$cnt]['extname'] = $name;
++				$cnt++;
++			}
++		}
++	}
++	zip_close($fp);
++	@unlink($tmpupfile);
++
++	return $files;
++}
+ ?>
+diff -rud pukiwiki-1.4.7.orig/plugin/ref.inc.php pukiwiki-1.4.7/plugin/ref.inc.php
+--- pukiwiki-1.4.7.orig/plugin/ref.inc.php	2006-02-24 10:35:34.000000000 +0900
++++ pukiwiki-1.4.7/plugin/ref.inc.php	2006-06-28 23:54:39.496730160 +0900
+@@ -4,6 +4,9 @@
+ // Copyright (C)
+ //   2002-2006 PukiWiki Developers Team
+ //   2001-2002 Originally written by yu-ji
++// Patch
++//   2005      diabah
++//   2004      ARAI
+ // License: GPL v2 or (at your option) any later version
+ //
+ // Image refernce plugin
+@@ -24,6 +27,9 @@
+ // Text wrapping
+ define('PLUGIN_REF_WRAP_TABLE', FALSE); // TRUE, FALSE
+ 
++// 引数を指定しない場合にサムネイルを作成するか
++define('PLUGIN_REF_THUMB', FALSE); // TRUE, FALSE
++
+ // URL指定時に画像サイズを取得するか
+ define('PLUGIN_REF_URL_GET_IMAGE_SIZE', FALSE); // FALSE, TRUE
+ 
+@@ -122,6 +128,8 @@
+ 		'nolink' => FALSE, // 元ファイルへのリンクを張らない
+ 		'noimg'  => FALSE, // 画像を展開しない
+ 		'zoom'   => FALSE, // 縦横比を保持する
++		'thumb'  => FALSE, // サムネイルを使う
++		'nothumb'=> FALSE, // サムネイルを使わない
+ 		'_size'  => FALSE, // サイズ指定あり
+ 		'_w'     => 0,       // 幅
+ 		'_h'     => 0,       // 高さ
+@@ -268,9 +276,14 @@
+ 
+ 			// URI for in-line image output
+ 			if (! PLUGIN_REF_DIRECT_ACCESS) {
+-				// With ref plugin (faster than attach)
+-				$url = $script . '?plugin=ref' . '&amp;page=' . rawurlencode($page) .
+-					'&amp;src=' . rawurlencode($name); // Show its filename at the last
++				if ($params['nothumb'] || (! PLUGIN_REF_THUMB && ! $params['thumb'])) {
++					// With ref plugin (faster than attach)
++					$url = $script . '?plugin=ref' . '&amp;page=' . rawurlencode($page) .
++						'&amp;src=' . rawurlencode($name); // Show its filename at the last
++				} else {
++					$url = $script . '?plugin=attach' . '&amp;thumb=' . rawurlencode($name) .
++						'&amp;refer=' . rawurlencode($page);
++				}
+ 			} else {
+ 				// Try direct-access, if possible
+ 				$url = $file;
+@@ -336,6 +349,15 @@
+ 			$height = (int)($height * $params['_%'] / 100);
+ 		}
+ 		if ($width && $height) $info = "width=\"$width\" height=\"$height\" ";
++
++		if (($params['thumb'] || (! $params['nothumb'] && PLUGIN_REF_THUMB)) && ! is_url($name)) {
++			if ($width) {
++				$url .= '&amp;width=' . $width;
++			}
++			if ($height) {
++				$url .= '&amp;height=' . $height;
++			}
++		}
+ 	}
+ 
+ 	// アラインメント判定
+pukiwiki-1.4.7/pluginだけに発見: ref.inc.php.rej

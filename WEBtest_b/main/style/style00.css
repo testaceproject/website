@@ -1,0 +1,135 @@
+@charset "utf-8";
+/* CSS Document */
+
+
+.subtitle {
+	font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;
+	font-size: medium;
+	color: #000;
+}
+
+ul, ol, dl { 
+	padding: 0;
+	margin: 0;
+}
+h1, h2, h3, h4, h5, h6, p {
+	margin-top: 0;
+	padding-right: 15px;
+	padding-left: 15px;
+	height: auto;
+}
+a img { 
+	border: none;
+	text-align: center;
+}
+
+a:link {
+	color: #000099;
+	text-decoration: none;
+}
+a:visited {
+	color: #330066;
+	text-decoration: none;
+}
+a:hover, a:active, a:focus {
+	text-decoration: none;
+}
+
+
+.container {
+    -webkit-box-shadow: 1px 1px 8px #535102;
+	-moz-box-shadow: 1px 1px 7px #999966;
+	box-shadow: 1px 1px 9px #999966;
+    
+	width: 96%;/*768/960 */
+	max-width: 930px;
+	min-width: 900px;
+	background: #FFF;
+	margin: 0 auto;
+	font-size: 14px;
+	color: #000;
+}
+
+
+/* ~~ これはレイアウト情報です。~~ 
+
+
+/* ~~ フッター ~~ */
+.footer {
+	padding: 10px 0;
+	background-color: #FFECD9;
+	font-size: x-small;
+	font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;
+	color: #333;
+}
+
+.fltrt { 
+	float: right;
+	margin-left: 8px;
+}
+.fltlft { 
+	float: left;
+	margin-right: 8px;
+}
+.clearfloat { 
+	clear:both;
+	height:0;
+	font-size: 1px;
+	line-height: 0px;
+}
+
+
+.container .footer {
+	text-align: center;
+}
+.container .footer p {
+	text-align: center;
+}
+
+body,td,th {
+	color: #000;
+}
+
+a:active {
+	color: #0000FF;
+	text-decoration: none;
+}
+.container .content {
+	font-family: "ＭＳ Ｐゴシック";
+	color: #000;
+}
+.content {
+	color: #000;
+}
+.container .content p {
+	font-size: 14px;
+	color: #000;
+}
+.container .content table tr td .text .text {
+	font-family: "ＭＳ ゴシック", "MS Gothic", "Osaka－等幅", Osaka-mono, monospace;
+	font-size: 14px;
+	color: #000;
+	line-height: 1.4em;
+}
+.container .content p .p .p strong {
+	color: #0000FF;
+}
+.container .content p a strong {
+	color: #0000FF;
+}
+a:hover {
+	color: #06F;
+	background-image: url(grbb1_030.gif);
+	text-decoration: none;
+}
+.text {
+	font-size: 14px;
+	color: #000;
+	text-align: left;
+	font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;
+}
+.text1 {
+	font-size: 14px;
+	color: #000;
+	font-family: Century;
+}

@@ -1,0 +1,216 @@
+@charset "utf-8";
+/* CSS Document */
+
+body {
+	margin: 0;
+	color: #000;
+	font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS P Gothic", sans-serif;
+	font-size: medium;
+	line-height: 1.4;
+	background-attachment: fixed;
+	background-image: none;
+	background-repeat: no-repeat;
+	background-position: center top;
+	padding-top: 10px;
+	padding-right: 0;
+	padding-bottom: 0px;
+	padding-left: 0;
+	margin-top: 3px;
+	text-align: left;
+}
+.container .content p name {
+	font-family: "ＭＳ ゴシック", "MS Gothic", "Osaka－等幅", Osaka-mono, monospace;
+	font-size: medium;
+	font-weight: bold;
+	color: #333;
+}
+
+/* ~~ エレメント / タグセレクター ~~ */
+ul, ol, dl { /* ブラウザー間の相違により、リストの余白とマージンをゼロにすることをお勧めします。一貫性を保つために、量をここで指定するか、リストに含まれるリスト項目 (LI、DT、DD) で指定できます。より詳細なセレクターを記述しない限り、ここで指定する内容が .nav リストにも適用されることに注意してください。 */
+	padding: 0;
+	margin: 0;
+}
+h1, h2, h3, h4, h5, h6, p {
+	margin-top: 0;	 /* 上マージンを削除すると、マージンを含む div からマージンがはみ出す場合があるという問題を回避できます。残った下マージンにより、後続のエレメントからは離されます。 */
+	padding-right: 15px;
+	padding-left: 15px;
+	text-align: left;
+	/* [disabled]height: auto; */
+}
+.content p {
+	color: #000;
+	font-size: medium;
+	font-family: "ＭＳ ゴシック", "MS Gothic", "Osaka－等幅", Osaka-mono, monospace;
+}
+.container .content p {
+	font-family: "ＭＳ ゴシック", "MS Gothic", "Osaka－等幅", Osaka-mono, monospace;
+}
+.container .content p {
+	font-size: medium;
+	font-family: "ＭＳ ゴシック", "MS Gothic", "Osaka－等幅", Osaka-mono, monospace;
+	color: #333;
+}
+.container .content p .container {
+	font-weight: bold;
+	color: #000;
+}
+a img { /* このセレクターは、一部のブラウザーでイメージをリンクで囲んだ場合にイメージの周囲に表示される初期設定の青いボーダーを削除します。 */
+	border: none;
+	text-align: center;
+}
+/* ~~ サイトのリンクのスタイル付けは、ホバー効果を作成するセレクターグループも含め、この順序にする必要があります。~~ */
+a:link {
+	color: #000066; /* 非常に特殊な表示方法でリンクをスタイル付けする場合を除き、一目で見分けられるように下線を指定することをお勧めします。 */
+	text-decoration: none;
+}
+.links {
+	font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;
+	font-size: small;
+	color: #06F;
+}
+a:visited {
+	color: #330033;
+	text-decoration: none;
+}
+a:hover, a:active, a:focus { /* このセレクターグループは、キーボードを使用するユーザーに対し、マウスを使用するユーザーと同じホバー効果を提供します。 */
+	text-decoration: none;
+}
+
+/* ~~ この固定幅コンテナが他の div を囲みます。~~ */
+.container {
+	-webkit-box-shadow: 1px 1px 8px #535102;
+	-moz-box-shadow: 1px 1px 7px #999966;
+	box-shadow: 1px 1px 9px #999966;
+
+    width: 96%;/*768/960 */
+    max-width: 930px;
+    min-width: 900px;
+    
+	background: #FFF;
+	margin: 0 auto;
+	color: #000000;
+}
+
+/* ~~ ヘッダーには幅は指定されません。ヘッダーはレイアウトの幅全体まで広がります。ヘッダーには、ユーザー独自のリンクされたロゴに置き換えられるイメージプレースホルダーが含まれます。~~ */
+
+/* ~~ その他の float/clear クラス ~~ */
+.fltrt {  /* このクラスを使用すると、ページ内でエレメントを右にフローティングさせることができます。フローティングさせるエレメントは、ページ内で横に並べて表示するエレメントの前に指定する必要があります。 */
+	float: right;
+	margin-left: 8px;
+}
+.fltlft { /* このクラスを使用すると、ページ内でエレメントを左にフローティングさせることができます。フローティングさせるエレメントは、ページ内で横に並べて表示するエレメントの前に指定する必要があります。 */
+	float: left;
+	margin-right: 8px;
+}
+
+/* ~~ これはレイアウト情報です。~~ 
+
+1) 余白は、div の上部または下部にのみ配置されます。この div 内のエレメントには、それ自体に余白があるので、ボックスモデル計算を行う必要がありません。ただし、div 自体に両側の余白やボーダーを指定した場合、その値が加算されたものが合計幅になることに注意してください。div 内のエレメントの余白を削除し、さらにその div 内に、全体のデザインに必要な幅や余白を指定していない 2 つ目の div を追加することもできます。
+
+*/
+
+
+/* ~~ フッター ~~ */
+.footer {
+	padding: 10px 0;
+	background-color: #FFECD9;
+	font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;
+	font-size: x-small;
+	color: #333;
+}
+.clearfloat { /* このクラスは、#footer が #container から削除されているか取り出されている場合に、<br /> または空の div で、フローティングさせる最後の div に続く最後のエレメントとして (#container 内に) 配置できます。 */
+	clear:both;
+	height:0;
+	font-size: 1px;
+	line-height: 0px;
+}
+
+.container .footer {
+	text-align: center;
+}
+.container .footer p {
+	text-align: left;
+}
+p {
+	color: #666;
+	font-size: medium;
+}
+a:active {
+	color: #003399;
+	text-decoration: none;
+}
+.container .content p strong {
+	color: #333;
+}
+.container .content p .container {
+	color: #333;
+}
+.container .content p strong {
+	font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;
+	font-size: medium;
+	font-weight: bold;
+	color: #000;
+}
+.name {
+	font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;
+	font-size: medium;
+	font-weight: bold;
+	color: #333;
+}
+.names {
+	font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;
+	font-size: medium;
+	font-weight: bold;
+	color: 
+; 	color: #006;
+}
+.container .content p {
+	color: #000;
+	font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;
+}
+.container .content p {
+	font-size: small;
+}
+.container .content p {
+	font-size: medium;
+}
+#ann_1 {
+	color: #00C;
+	text-decoration: underline;
+}
+.midashi {
+	font-size: medium;
+	font-weight: bold;
+}
+
+.yohaku {
+	font-size: small;
+}
+.subtitle {
+	font-size: small;
+}
+a:hover {
+	color: #0066CC;
+	text-decoration: underline;
+}
+#pagetop {
+	font-size: small;
+	font-weight: bold;
+	color: #06F;
+}
+.container .content p .container {
+	color: #666;
+}
+#text1 {
+	font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;
+	font-size: small;
+	font-weight: bold;
+	color: #006;
+	text-align: right;
+}
+.ｎａｍｅ．ｇｒｏｕｐ {
+	font-family: "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", "メイリオ", Meiryo, Osaka, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;
+	font-size: medium;
+	font-weight: bold;
+	color: #666;
+}
